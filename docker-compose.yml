@@ -119,8 +119,41 @@ services:
     restart: unless-stopped
     environment:
       - TZ=Europe/Paris # timezone
+      - PUID=1000 # default user id, for downloaded files access rights
+      - PGID=1000 # default group id, for downloaded files access rights
     network_mode: host
     volumes:
       - ${HOME}/.plex/db:/config # plex database
       - ${HOME}/.plex/transcode:/transcode # temp transcoded files
       - ${HOME}/downloads:/data # media library
+
+  emby:
+    container_name: emby
+    image: emby/embyserver_arm32v7_neon:latest
+    restart: unless-stopped
+    ports:
+      - "8096:8096"
+      - "8920:8920"
+      - "7359:7359/udp"
+      - "1900:1900/udp"
+    environment:
+      - PUID=1000 # default user id, for downloaded files access rights
+      - PGID=1000 # default group id, for downloaded files access rights
+      - TZ=Europe/Paris # timezone
+    network_mode: host
+    volumes:
+      - ${HOME}/.config/emby:/config # config files
+      - /media/${USER}/data1/downloads:/media # media library
+  
+
+  portainer:
+    image: portainer/portainer
+    ports:
+      - "9000:9000"
+    command: -H unix:///var/run/docker.sock
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - portainer_data:/data
+
+volumes:
+  portainer_data:
