@@ -3,7 +3,7 @@ services:
 
   vpn:
     container_name: vpn
-    image: dperson/openvpn-client:latest
+    image: dperson/openvpn-client:armhf
     cap_add:
       - net_admin # required to modify network interfaces
     restart: unless-stopped
@@ -12,11 +12,13 @@ services:
       - ${HOME}/.vpn:/vpn # OpenVPN configuration
     ports:
       - 8112:8112 # port for deluge web UI to be reachable from local network
-    command: '-r 192.168.1.0/24' # route local network traffic
+    command: '-d -r 10.1.10.0/24' # route local network traffic
 
   deluge:
     container_name: deluge
-    image: linuxserver/deluge:latest
+    depends_on:
+      - vpn
+    image: lsioarmhf/deluge:latest
     restart: always
     network_mode: service:vpn # run on the vpn network
     environment:
@@ -24,12 +26,12 @@ services:
       - PGID=1000 # default group id, for downloaded files access rights
       - TZ=Europe/Paris # timezone
     volumes:
-      - /media/${USER}/data1/downloads/ongoing:/downloads # download folder
+      - ${HOME}/downloads/ongoing:/downloads # download folder
       - ${HOME}/.config/deluge:/config # config files
 
   jackett:
     container_name: jackett
-    image: linuxserver/jackett:latest
+    image: lsioarmhf/jackett:latest
     restart: unless-stopped
     network_mode: host
     environment:
@@ -38,12 +40,12 @@ services:
       - TZ=Europe/Paris # timezone
     volumes:
       - /etc/localtime:/etc/localtime:ro
-      - /media/${USER}/data1/downloads/ongoing/torrent-blackhole:/downloads # place where to put .torrent files
+      - ${HOME}/downloads/ongoing/torrent-blackhole:/downloads # place where to put .torrent files
       - ${HOME}/.config/jackett:/config # config files
 
-  nzbget:
-    container_name: nzbget
-    image: linuxserver/nzbget:latest
+  hydra:
+    container_name: hydra
+    image: lsioarmhf/hydra2:latest
     restart: unless-stopped
     network_mode: host
     environment:
@@ -51,12 +53,28 @@ services:
       - PGID=1000 # default group id, for downloaded files access rights
       - TZ=Europe/Paris # timezone
     volumes:
-      - /media/${USER}/data1/downloads/ongoing:/downloads # download folder
+      - /etc/localtime:/etc/localtime:ro
+      - ${HOME}/downloads/ongoing/nzb-blackhole:/downloads # place where to put .torrent files
+      - ${HOME}/.config/hydra:/config # config files
+
+  nzbget:
+    container_name: nzbget
+    image: lsioarmhf/nzbget:latest
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      - PUID=1000 # default user id, for downloaded files access rights
+      - PGID=1000 # default group id, for downloaded files access rights
+      - TZ=Europe/Paris # timezone
+    volumes:
+      - ${HOME}/downloads/ongoing:/downloads/incomplete # download folder
+      - ${HOME}/downloads:/downloads/completed # download folder
+      - ${HOME}/downloads/ongoing/nzb-blackhole:/downloads/nzb # place where to put .torrent files
       - ${HOME}/.config/nzbget:/config # config files
 
   sonarr:
     container_name: sonarr
-    image: linuxserver/sonarr:latest
+    image: lsioarmhf/sonarr:latest
     restart: unless-stopped
     network_mode: host
     environment:
@@ -66,12 +84,12 @@ services:
     volumes:
       - /etc/localtime:/etc/localtime:ro
       - ${HOME}/.config/sonarr:/config # config files
-      - /media/${USER}/data1/downloads/series:/tv # tv shows folder
-      - /media/${USER}/data1/downloads/ongoing:/downloads # download folder
+      - ${HOME}/downloads/series:/tv # tv shows folder
+      - ${HOME}/downloads/ongoing:/downloads # download folder
 
   radarr:
     container_name: radarr
-    image: linuxserver/radarr:latest
+    image: lsioarmhf/radarr:latest
     restart: unless-stopped
     network_mode: host
     environment:
@@ -81,12 +99,23 @@ services:
     volumes:
       - /etc/localtime:/etc/localtime:ro
       - ${HOME}/.config/radarr:/config # config files
-      - /media/${USER}/data1/downloads/movies:/movies # movies folder
-      - /media/${USER}/data1/downloads/ongoing:/downloads # download folder
+      - ${HOME}/downloads/movies:/movies # movies folder
+      - ${HOME}/downloads/ongoing:/downloads # download folder
+
+  organizr:
+    container_name: organizr 
+    image: lsioarmhf/organizr:latest
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      - PUID=1000 # default user id, for downloaded files access rights
+      - PGID=1000 # default group id, for downloaded files access rights
+    volumes:
+      - ${HOME}/.config/organizr:/config # config files
 
   plex-server:
     container_name: plex-server
-    image: plexinc/pms-docker:latest
+    image: lsioarmhf/plex:latest
     restart: unless-stopped
     environment:
       - TZ=Europe/Paris # timezone
@@ -94,4 +123,4 @@ services:
     volumes:
       - ${HOME}/.plex/db:/config # plex database
       - ${HOME}/.plex/transcode:/transcode # temp transcoded files
-      - /media/${USER}/data1/downloads:/data # media library
+      - ${HOME}/downloads:/data # media library
