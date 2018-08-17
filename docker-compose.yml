@@ -158,7 +158,7 @@ services:
     network_mode: host
     volumes:
       - ${HOME}/.plex/db:/config # plex database
-      - ${HOME}/.plex/transcode:/transcode # temp transcoded files
+      - /media/ongoing/transcode:/transcode # temp transcoded files
       - /media:/data # media library
 
   emby:
