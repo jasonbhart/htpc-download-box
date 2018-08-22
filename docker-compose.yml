@@ -46,19 +46,18 @@ services:
     image: dperson/samba:armhf
     restart: always
     network_mode: host
-    command: ["-S", "-w WORKGROUP", "-u admin;password", "-sMovies;/movies;yes;yes;yes;all;admin;admin;Movies", "-sTV Series;/series;yes;yes;yes;all;admin;admin;Movies", "-r", "-n"]
-    environment:
-      - GLOBAL="client min protocol = SMB3; server min protocol = SMB3; server string = SeedBox; netbios name = SeedBox; name resolve order = bcast host"
+    command: ["-w WORKGROUP", "-u admin;password", "-sMovies;/movies;yes;yes;yes;all;admin;admin;Movies", "-sTV Series;/series;yes;yes;yes;all;admin;admin;Movies", "-r", "-n"]
     ports:
       - "445:445"
-      - "137:137"
-      - "138:138"
+      - "137:137/udp"
+      - "138:138/udp"
       - "139:139"
     volumes:
       - /media/series:/series:rw # download folder
       - /media/movies:/movies:rw # download folder
 
   deluge:
+    container_name: deluge
     depends_on:
       - vpn
     image: lsioarmhf/deluge:latest
@@ -181,6 +180,7 @@ services:
   
 
   portainer:
+    container_name: portainer
     image: portainer/portainer
     ports:
       - "9001:9000"
