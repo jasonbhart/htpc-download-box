@@ -8,7 +8,7 @@ services:
       - net_admin # required to modify network interfaces
     environment:
       TZ: 'EST5EDT'
-#    read_only: true
+    read_only: true
     tmpfs:
       - /tmp
     restart: unless-stopped
@@ -17,7 +17,7 @@ services:
     stdin_open: true
     tty: true
     volumes:
-      - /dev/net/tun:/dev/net/tun # tun device
+      - /dev/net:/dev/net:z
       - ${HOME}/.vpn:/vpn # OpenVPN configuration
     ports:
       - 8112:8112 # port for deluge web UI to be reachable from local network
@@ -26,7 +26,7 @@ services:
   no-ip:
     container_name: no-ip
     image: cwmyers/rpi-no-ip:latest
-    restart: always
+    restart: unless-stopped
     volumes:
       - /etc/localtime:/etc/localtime:ro
       - ${HOME}/.config/no-ip:/config # config files
@@ -60,11 +60,15 @@ services:
 #    read_only: true
     tmpfs:
       - /tmp
+      - /var/cache/samba
+      - /var/log/samba
+      - /var/lib/samba/private
+      - /var/run/samba
     restart: unless-stopped
     stdin_open: true
     tty: true
     network_mode: host
-    command: ["-w WORKGROUP", "-u admin;password", "-sMovies;/movies;yes;yes;yes;all;admin;admin;Movies", "-sTV Series;/series;yes;yes;yes;all;admin;admin;Movies", "-r", "-n"]
+#    command: ["-w WORKGROUP", "-u admin;password", "-sMovies;/movies;yes;yes;yes;all;admin;admin;Movies", "-sTV Series;/series;yes;yes;yes;all;admin;admin;Movies", "-r", "-n"]
     volumes:
       - /media/series:/series:rw # download folder
       - /media/movies:/movies:rw # download folder
@@ -81,9 +85,9 @@ services:
       - PGID=1000 # default group id, for downloaded files access rights
       - TZ=Europe/Paris # timezone
     volumes:
-      - /media/ongoing/completed:/downloads/completed # download folder
-      - /media/ongoing/incomplete:/downloads/incomplete # download folder
-      - /media/ongoing/torrent-blackhole:/downloads/torrent-blackhole # put .torrent files
+      - /media/usb1/ongoing/completed:/downloads/completed # download folder
+      - /media/usb1/ongoing/incomplete:/downloads/incomplete # download folder
+      - /media/usb1/ongoing/torrent-blackhole:/downloads/torrent-blackhole # put .torrent files
       - ${HOME}/.config/deluge:/config # config files
 
   nzbget:
@@ -96,9 +100,9 @@ services:
       - PGID=1000 # default group id, for downloaded files access rights
       - TZ=Europe/Paris # timezone
     volumes:
-      - /media/ongoing/completed:/downloads/completed # download folder
-      - /media/ongoing/incomplete:/downloads/intermediate # download folder
-      - /media/ongoing/nzb-blackhole:/downloads/nzb # place where to put .nzb files
+      - /media/usb1/ongoing/completed:/downloads/completed # download folder
+      - /media/usb1/ongoing/incomplete:/downloads/intermediate # download folder
+      - /media/usb1/ongoing/nzb-blackhole:/downloads/nzb # place where to put .nzb files
       - ${HOME}/.config/nzbget:/config # config files
 
   jackett:
@@ -112,7 +116,7 @@ services:
       - TZ=Europe/Paris # timezone
     volumes:
       - /etc/localtime:/etc/localtime:ro
-      - /media/ongoing/torrent-blackhole:/downloads # place where to put .torrent files
+      - /media/usb1/ongoing/torrent-blackhole:/downloads # place where to put .torrent files
       - ${HOME}/.config/jackett:/config # config files
 
   hydra:
@@ -126,7 +130,7 @@ services:
       - TZ=Europe/Paris # timezone
     volumes:
       - /etc/localtime:/etc/localtime:ro
-      - /media/ongoing/nzb-blackhole:/downloads # place where to put .torrent files
+      - /media/usb1/ongoing/nzb-blackhole:/downloads # place where to put .torrent files
       - ${HOME}/.config/hydra:/config # config files
 
   sonarr:
@@ -141,8 +145,8 @@ services:
     volumes:
       - /etc/localtime:/etc/localtime:ro
       - ${HOME}/.config/sonarr:/config # config files
-      - /media/series:/tv # tv shows folder
-      - /media/ongoing/completed:/downloads/completed # download folder
+      - /media/usb1/series:/tv # tv shows folder
+      - /media/usb1/ongoing/completed:/downloads/completed # download folder
 
   radarr:
     container_name: radarr
@@ -156,8 +160,8 @@ services:
     volumes:
       - /etc/localtime:/etc/localtime:ro
       - ${HOME}/.config/radarr:/config # config files
-      - /media/movies:/movies # movies folder
-      - /media/ongoing/completed:/downloads/completed # download folder
+      - /media/usb1/movies:/movies # movies folder
+      - /media/usb1/ongoing/completed:/downloads/completed # download folder
 
   plex-server:
     container_name: plex-server
@@ -170,8 +174,8 @@ services:
       - PGID=1000 # default group id, for downloaded files access rights
     volumes:
       - ${HOME}/.plex/db:/config # plex database
-      - /media/ongoing/transcode:/transcode # temp transcoded files
-      - /media:/data # media library
+      - /media/usb1/ongoing/transcode:/transcode # temp transcoded files
+      - /media:/media # media library
 
   emby:
     container_name: emby
