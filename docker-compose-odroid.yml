@@ -1,0 +1,204 @@
+version: '3.4'
+services:
+
+  vpn:
+    container_name: vpn
+    image: dperson/openvpn-client:aarch64
+    cap_add:
+      - net_admin # required to modify network interfaces
+    environment:
+      TZ: 'EST5EDT'
+    read_only: true
+    tmpfs:
+      - /tmp
+    restart: unless-stopped
+    security_opt:
+      - label:disable
+    stdin_open: true
+    tty: true
+    volumes:
+      - /dev/net:/dev/net:z
+      - ${HOME}/.vpn:/vpn # OpenVPN configuration
+    ports:
+      - 8112:8112 # port for deluge web UI to be reachable from local network
+    command: '-d -r 10.1.10.0/24' # route local network traffic
+
+  no-ip:
+    container_name: no-ip
+    image: cwmyers/rpi-no-ip:latest
+    restart: unless-stopped
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - ${HOME}/.config/no-ip:/config # config files
+
+  web:
+    container_name: web
+    image: lsioarmhf/nginx-aarch64:latest
+    environment:
+      - PUID=1000 # default user id, for downloaded files access rights
+      - PGID=1000 # default group id, for downloaded files access rights
+      - TZ=Europe/Paris # timezone
+    restart: unless-stopped
+    network_mode: host
+#    read_only: true
+    tmpfs:
+      - /run
+      - /tmp
+      - /var/cache/nginx
+      - /var/run
+    volumes:
+      - ./index.html:/config/www/index.html
+      - ./nginx.conf:/config/default.conf
+    stdin_open: true
+    tty: true
+
+  samba:
+    container_name: samba
+    image: dperson/samba:aarch64
+    environment:
+      TZ: 'EST5EDT'
+#    read_only: true
+    tmpfs:
+      - /tmp
+      - /var/cache/samba
+      - /var/log/samba
+      - /var/lib/samba/private
+      - /var/run/samba
+    restart: unless-stopped
+    stdin_open: true
+    tty: true
+    network_mode: host
+#    command: ["-w WORKGROUP", "-u admin;password", "-sMovies;/movies;yes;yes;yes;all;admin;admin;Movies", "-sTV Series;/series;yes;yes;yes;all;admin;admin;Movies", "-r", "-n"]
+    volumes:
+      - /media/series:/series:rw # download folder
+      - /media/movies:/movies:rw # download folder
+
+  deluge:
+    container_name: deluge
+    depends_on:
+      - vpn
+    image: lsioarmhf/deluge-aarch64:latest
+    restart: unless-stopped
+    network_mode: service:vpn # run on the vpn network
+    environment:
+      - PUID=1000 # default user id, for downloaded files access rights
+      - PGID=1000 # default group id, for downloaded files access rights
+      - TZ=Europe/Paris # timezone
+    volumes:
+      - /media/usb1/ongoing/completed:/downloads/completed # download folder
+      - /media/usb1/ongoing/incomplete:/downloads/incomplete # download folder
+      - /media/usb1/ongoing/torrent-blackhole:/downloads/torrent-blackhole # put .torrent files
+      - ${HOME}/.config/deluge:/config # config files
+
+  nzbget:
+    container_name: nzbget
+    image: lsioarmhf/nzbget:latest
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      - PUID=1000 # default user id, for downloaded files access rights
+      - PGID=1000 # default group id, for downloaded files access rights
+      - TZ=Europe/Paris # timezone
+    volumes:
+      - /media/usb1/ongoing/completed:/downloads/completed # download folder
+      - /media/usb1/ongoing/incomplete:/downloads/intermediate # download folder
+      - /media/usb1/ongoing/nzb-blackhole:/downloads/nzb # place where to put .nzb files
+      - ${HOME}/.config/nzbget:/config # config files
+
+  jackett:
+    container_name: jackett
+    image: lsioarmhf/jackett-aarch64:latest
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      - PUID=1000 # default user id, for downloaded files access rights
+      - PGID=1000 # default group id, for downloaded files access rights
+      - TZ=Europe/Paris # timezone
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - /media/usb1/ongoing/torrent-blackhole:/downloads # place where to put .torrent files
+      - ${HOME}/.config/jackett:/config # config files
+
+  hydra:
+    container_name: hydra
+    image: lsioarmhf/hydra2-aarch64:latest
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      - PUID=1000 # default user id, for downloaded files access rights
+      - PGID=1000 # default group id, for downloaded files access rights
+      - TZ=Europe/Paris # timezone
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - /media/usb1/ongoing/nzb-blackhole:/downloads # place where to put .torrent files
+      - ${HOME}/.config/hydra:/config # config files
+
+  sonarr:
+    container_name: sonarr
+    image: lsioarmhf/sonarr-aarch64:latest
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      - PUID=1000 # default user id, for downloaded files access rights
+      - PGID=1000 # default group id, for downloaded files access rights
+      - TZ=Europe/Paris # timezone
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - ${HOME}/.config/sonarr:/config # config files
+      - /media/usb1/series:/tv # tv shows folder
+      - /media/usb1/ongoing/completed:/downloads/completed # download folder
+
+  radarr:
+    container_name: radarr
+    image: lsioarmhf/radarr-aarch64:latest
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      - PUID=1000 # default user id, for downloaded files access rights
+      - PGID=1000 # default group id, for downloaded files access rights
+      - TZ=Europe/Paris # timezone
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - ${HOME}/.config/radarr:/config # config files
+      - /media/usb1/movies:/movies # movies folder
+      - /media/usb1/ongoing/completed:/downloads/completed # download folder
+
+  plex-server:
+    container_name: plex-server
+    image: lsioarmhf/plex:latest
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      - TZ=Europe/Paris # timezone
+      - PUID=1000 # default user id, for downloaded files access rights
+      - PGID=1000 # default group id, for downloaded files access rights
+    volumes:
+      - ${HOME}/.plex/db:/config # plex database
+      - /media/usb1/ongoing/transcode:/transcode # temp transcoded files
+      - /media:/media # media library
+
+  emby:
+    container_name: emby
+    image: emby/embyserver_arm32v7_neon:latest
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      - PUID=1000 # default user id, for downloaded files access rights
+      - PGID=1000 # default group id, for downloaded files access rights
+      - TZ=Europe/Paris # timezone
+    volumes:
+      - ${HOME}/.config/emby:/config # config files
+      - /media:/media # media library
+  
+
+  portainer:
+    container_name: portainer
+    image: portainer/portainer
+    network_mode: host
+    command: -H unix:///var/run/docker.sock
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - portainer_data:/data
+
+volumes:
+  portainer_data:
