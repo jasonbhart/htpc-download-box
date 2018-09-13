@@ -114,7 +114,7 @@ services:
       - /etc/localtime:/etc/localtime:ro
       - ${HOME}/.config/sonarr:/config # config files
       - /media/series:/tv # tv shows folder
-      - /media/ongoing/completed:/downloads/completed # download folder
+      - /media/ongoing:/downloads # download folder
 
   radarr:
     container_name: radarr
@@ -129,7 +129,7 @@ services:
       - /etc/localtime:/etc/localtime:ro
       - ${HOME}/.config/radarr:/config # config files
       - /media/movies:/movies # movies folder
-      - /media/ongoing/completed:/downloads/completed # download folder
+      - /media/ongoing:/downloads # download folder
 
   plex-server:
     container_name: plex-server
