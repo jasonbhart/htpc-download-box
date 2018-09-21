@@ -11,25 +11,38 @@ services:
       - /dev/net/tun:/dev/net/tun # tun device
       - ${HOME}/.vpn:/vpn # OpenVPN configuration
     ports:
-      - 8112:8112 # port for deluge web UI to be reachable from local network
+      - 8112:8112 # port for Deluge web UI to be reachable from local network
     command: '-d -r 10.1.10.0/24' # route local network traffic
 
-  no-ip:
-    container_name: no-ip
-    image: cwmyers/rpi-no-ip:latest
-    restart: always
-    volumes:
-      - /etc/localtime:/etc/localtime:ro
-      - ${HOME}/.config/no-ip:/config # config files
-
-  web:
-    container_name: web
-    image: nginx:latest
+  heimdall:
+    container_name: heimdall
+    image: lsioarmhf/heimdall:latest
     restart: unless-stopped
-    network_mode: host
+    ports:
+      - "80:80"
+    networks:
+      - traefik_proxy
+    environment:
+      - PUID=${PUID} # default user id, for downloaded files access rights
+      - PGID=${PGID} # default group id, for downloaded files access rights
+      - TZ=${TZ} # timezone
     volumes:
-      - ./index.html:/docroot/index.html
-      - ./nginx.conf:/etc/nginx/conf.d/default.conf
+      - ${HOME}/.config/heimdal:/config # config files
+    labels:
+      - "traefik.enable=true"
+      - "traefik.backend=heimdall"
+      - "traefik.frontend.rule=Host:heimdall.${DOMAINNAME}"  
+      - "traefik.port=80"
+      - "traefik.docker.network=traefik_proxy"
+      - "traefik.frontend.headers.SSLRedirect=true"
+      - "traefik.frontend.headers.STSSeconds=315360000"
+      - "traefik.frontend.headers.browserXSSFilter=true"
+      - "traefik.frontend.headers.contentTypeNosniff=true"
+      - "traefik.frontend.headers.forceSTSHeader=true"
+      - "traefik.frontend.headers.SSLHost=${DOMAINNAME}"
+      - "traefik.frontend.headers.STSIncludeSubdomains=true"
+      - "traefik.frontend.headers.STSPreload=true"
+      - "traefik.frontend.headers.frameDeny=true"
 
   samba:
     container_name: samba
@@ -49,82 +62,189 @@ services:
     restart: unless-stopped
     network_mode: service:vpn # run on the vpn network
     environment:
-      - PUID=1000 # default user id, for downloaded files access rights
-      - PGID=1000 # default group id, for downloaded files access rights
-      - TZ=Europe/Paris # timezone
+      - PUID=${PUID} # default user id, for downloaded files access rights
+      - PGID=${PGID} # default group id, for downloaded files access rights
+      - TZ=${TZ} # timezone
     volumes:
       - /media/ongoing/completed:/downloads/completed # download folder
       - /media/ongoing/incomplete:/downloads/incomplete # download folder
       - /media/ongoing/torrent-blackhole:/downloads/torrent-blackhole # put .torrent files
       - ${HOME}/.config/deluge:/config # config files
+    labels:
+      - "traefik.enable=true"
+      - "traefik.backend=deluge"
+      - "traefik.frontend.rule=Host:deluge.${DOMAINNAME}"
+      - "traefik.port=8112"
+      - "traefik.docker.network=traefik_proxy"
+      - "traefik.frontend.headers.SSLRedirect=true"
+      - "traefik.frontend.headers.STSSeconds=315360000"
+      - "traefik.frontend.headers.browserXSSFilter=true"
+      - "traefik.frontend.headers.contentTypeNosniff=true"
+      - "traefik.frontend.headers.forceSTSHeader=true"
+      - "traefik.frontend.headers.SSLHost=${DOMAINNAME}"
+      - "traefik.frontend.headers.STSIncludeSubdomains=true"
+      - "traefik.frontend.headers.STSPreload=true"
+      - "traefik.frontend.headers.frameDeny=true"
 
   nzbget:
     container_name: nzbget
     image: lsioarmhf/nzbget:latest
     restart: unless-stopped
-    network_mode: host
+    ports:
+      - "6789:6789"
+    networks: 
+      - traefik_proxy
     environment:
-      - PUID=1000 # default user id, for downloaded files access rights
-      - PGID=1000 # default group id, for downloaded files access rights
-      - TZ=Europe/Paris # timezone
+      - PUID=${PUID} # default user id, for downloaded files access rights
+      - PGID=${PGID} # default group id, for downloaded files access rights
+      - TZ=${TZ} # timezone
     volumes:
       - /media/ongoing/completed:/downloads/completed # download folder
       - /media/ongoing/incomplete:/downloads/intermediate # download folder
       - /media/ongoing/nzb-blackhole:/downloads/nzb # place where to put .nzb files
       - ${HOME}/.config/nzbget:/config # config files
+    labels:
+      - "traefik.enable=true"
+      - "traefik.backend=nzbget"
+      - "traefik.frontend.rule=Host:nzbget.${DOMAINNAME}"
+      - "traefik.port=6789"
+      - "traefik.docker.network=traefik_proxy"
+      - "traefik.frontend.headers.SSLRedirect=true"
+      - "traefik.frontend.headers.STSSeconds=315360000"
+      - "traefik.frontend.headers.browserXSSFilter=true"
+      - "traefik.frontend.headers.contentTypeNosniff=true"
+      - "traefik.frontend.headers.forceSTSHeader=true"
+      - "traefik.frontend.headers.SSLHost=${DOMAINNAME}"
+      - "traefik.frontend.headers.STSIncludeSubdomains=true"
+      - "traefik.frontend.headers.STSPreload=true"
+      - "traefik.frontend.headers.frameDeny=true"
 
   jackett:
     container_name: jackett
     image: lsioarmhf/jackett:latest
     restart: unless-stopped
-    network_mode: host
+    ports:
+        - "9117:9117"
+    networks:
+      - traefik_proxy
     environment:
-      - PUID=1000 # default user id, for downloaded files access rights
-      - PGID=1000 # default group id, for downloaded files access rights
-      - TZ=Europe/Paris # timezone
+      - PUID=${PUID} # default user id, for downloaded files access rights
+      - PGID=${PGID} # default group id, for downloaded files access rights
+      - TZ=${TZ} # timezone
     volumes:
       - /etc/localtime:/etc/localtime:ro
       - /media/ongoing/torrent-blackhole:/downloads # place where to put .torrent files
       - ${HOME}/.config/jackett:/config # config files
+    labels:
+      - "traefik.enable=true"
+      - "traefik.backend=jackett"
+      - "traefik.frontend.rule=Host:jackett.${DOMAINNAME}"
+      - "traefik.port=9117"
+      - "traefik.docker.network=traefik_proxy"
+      - "traefik.frontend.headers.SSLRedirect=true"
+      - "traefik.frontend.headers.STSSeconds=315360000"
+      - "traefik.frontend.headers.browserXSSFilter=true"
+      - "traefik.frontend.headers.contentTypeNosniff=true"
+      - "traefik.frontend.headers.forceSTSHeader=true"
+      - "traefik.frontend.headers.SSLHost=${DOMAINNAME}"
+      - "traefik.frontend.headers.STSIncludeSubdomains=true"
+      - "traefik.frontend.headers.STSPreload=true"
+      - "traefik.frontend.headers.frameDeny=true"
 
   hydra:
     container_name: hydra
     image: lsioarmhf/hydra2:latest
     restart: unless-stopped
-    network_mode: host
+    ports:
+        - "5076:5076"
+    networks:
+      - traefik_proxy
     environment:
-      - PUID=1000 # default user id, for downloaded files access rights
-      - PGID=1000 # default group id, for downloaded files access rights
-      - TZ=Europe/Paris # timezone
+      - PUID=${PUID} # default user id, for downloaded files access rights
+      - PGID=${PGID} # default group id, for downloaded files access rights
+      - TZ=${TZ} # timezone
     volumes:
       - /etc/localtime:/etc/localtime:ro
       - /media/ongoing/nzb-blackhole:/downloads # place where to put .torrent files
       - ${HOME}/.config/hydra:/config # config files
+    labels:
+      - "traefik.enable=true"
+      - "traefik.backend=hydra"
+      - "traefik.frontend.rule=Host:hydra.${DOMAINNAME}"
+      - "traefik.port=5076"
+      - "traefik.docker.network=traefik_proxy"
+      - "traefik.frontend.headers.SSLRedirect=true"
+      - "traefik.frontend.headers.STSSeconds=315360000"
+      - "traefik.frontend.headers.browserXSSFilter=true"
+      - "traefik.frontend.headers.contentTypeNosniff=true"
+      - "traefik.frontend.headers.forceSTSHeader=true"
+      - "traefik.frontend.headers.SSLHost=${DOMAINNAME}"
+      - "traefik.frontend.headers.STSIncludeSubdomains=true"
+      - "traefik.frontend.headers.STSPreload=true"
+      - "traefik.frontend.headers.frameDeny=true"
 
   sonarr:
     container_name: sonarr
     image: lsioarmhf/sonarr:latest
     restart: unless-stopped
-    network_mode: host
+    ports:
+        - "8989:8989"
+    networks:
+      - default
+      - traefik_proxy
     environment:
-      - PUID=1000 # default user id, for downloaded files access rights
-      - PGID=1000 # default group id, for downloaded files access rights
-      - TZ=Europe/Paris # timezone
+      - PUID=${PUID} # default user id, for downloaded files access rights
+      - PGID=${PGID} # default group id, for downloaded files access rights
+      - TZ=${TZ} # timezone
     volumes:
       - /etc/localtime:/etc/localtime:ro
       - ${HOME}/.config/sonarr:/config # config files
       - /media/series:/tv # tv shows folder
       - /media/ongoing:/downloads # download folder
+    labels:
+      - "traefik.enable=true"
+      - "traefik.backend=sonarr"
+      - "traefik.frontend.rule=Host:sonarr.${DOMAINNAME}"
+      - "traefik.port=8989"
+      - "traefik.docker.network=traefik_proxy"
+      - "traefik.frontend.headers.SSLRedirect=true"
+      - "traefik.frontend.headers.STSSeconds=315360000"
+      - "traefik.frontend.headers.browserXSSFilter=true"
+      - "traefik.frontend.headers.contentTypeNosniff=true"
+      - "traefik.frontend.headers.forceSTSHeader=true"
+      - "traefik.frontend.headers.SSLHost=${DOMAINNAME}"
+      - "traefik.frontend.headers.STSIncludeSubdomains=true"
+      - "traefik.frontend.headers.STSPreload=true"
+      - "traefik.frontend.headers.frameDeny=true"
 
   radarr:
     container_name: radarr
     image: lsioarmhf/radarr:latest
     restart: unless-stopped
-    network_mode: host
+    ports:
+      - "7878:7878"
+    networks:
+      - default
+      - traefik_proxy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.backend=radarr"
+      - "traefik.frontend.rule=Host:radarr.${DOMAINNAME}"
+      - "traefik.port=7878"
+      - "traefik.docker.network=traefik_proxy"
+      - "traefik.frontend.headers.SSLRedirect=true"
+      - "traefik.frontend.headers.STSSeconds=315360000"
+      - "traefik.frontend.headers.browserXSSFilter=true"
+      - "traefik.frontend.headers.contentTypeNosniff=true"
+      - "traefik.frontend.headers.forceSTSHeader=true"
+      - "traefik.frontend.headers.SSLHost=${DOMAINNAME}"
+      - "traefik.frontend.headers.STSIncludeSubdomains=true"
+      - "traefik.frontend.headers.STSPreload=true"
+      - "traefik.frontend.headers.frameDeny=true"
     environment:
-      - PUID=1000 # default user id, for downloaded files access rights
-      - PGID=1000 # default group id, for downloaded files access rights
-      - TZ=Europe/Paris # timezone
+      - PUID=${PUID} # default user id, for downloaded files access rights
+      - PGID=${PGID} # default group id, for downloaded files access rights
+      - TZ=${TZ} # timezone
     volumes:
       - /etc/localtime:/etc/localtime:ro
       - ${HOME}/.config/radarr:/config # config files
@@ -135,38 +255,114 @@ services:
     container_name: plex-server
     image: lsioarmhf/plex:latest
     restart: unless-stopped
-    network_mode: host
+    ports:
+      - "32400:32400"
+      - "32400:32400/udp"
+      - "32469:32469"
+      - "32469:32469/udp"
+      - "1900:1900/udp"
+    networks:
+      - traefik_proxy
     environment:
-      - TZ=Europe/Paris # timezone
-      - PUID=1000 # default user id, for downloaded files access rights
-      - PGID=1000 # default group id, for downloaded files access rights
+      - TZ=${TZ} # timezone
+      - PUID=${PUID} # default user id, for downloaded files access rights
+      - PGID=${PGID} # default group id, for downloaded files access rights
     volumes:
       - ${HOME}/.plex/db:/config # plex database
       - /media/ongoing/transcode:/transcode # temp transcoded files
       - /media:/data # media library
+    labels:
+      - "traefik.enable=true"
+      - "traefik.backend=plexms"
+      - "traefik.frontend.rule=Host:plex.${DOMAINNAME}"
+      - "traefik.port=32400"
+      - "traefik.protocol=http"
+      - "traefik.docker.network=traefik_proxy"
+      - "traefik.frontend.headers.SSLRedirect=true"
+      - "traefik.frontend.headers.STSSeconds=315360000"
+      - "traefik.frontend.headers.browserXSSFilter=true"
+      - "traefik.frontend.headers.contentTypeNosniff=true"
+      - "traefik.frontend.headers.forceSTSHeader=true"
+      - "traefik.frontend.headers.SSLHost=${DOMAINNAME}"
+      - "traefik.frontend.headers.STSIncludeSubdomains=true"
+      - "traefik.frontend.headers.STSPreload=true"
+      - "traefik.frontend.headers.frameDeny=true"
 
-  emby:
-    container_name: emby
-    image: emby/embyserver_arm32v7_neon:latest
+  traefik:
+    container_name: traefik
+    image: arm32v6/traefik:alpine
     restart: unless-stopped
-    network_mode: host
+    networks:
+      - default
+      - traefik_proxy
+    ports:
+      - "6660:6660"
+      - "6661:6661"
+      - "8080:8080"
+    domainname: ${DOMAINNAME}
     environment:
-      - PUID=1000 # default user id, for downloaded files access rights
-      - PGID=1000 # default group id, for downloaded files access rights
-      - TZ=Europe/Paris # timezone
+      - TZ=${TZ} # timezone
+      - PUID=${PUID} # default user id, for downloaded files access rights
+      - PGID=${PGID} # default group id, for downloaded files access rights
+      - DOMAINNAME=${DOMAINNAME}
+      - CLOUDFLARE_EMAIL=jasonbhart@gmail.com 
+      - CLOUDFLARE_API_KEY=4f326d3ccb01ede7180bf0ef1287aee7b220a 
+    labels:
+      - "traefik.enable=true"
+      - "traefik.backend=traefik"
+      - "traefik.frontend.rule=Host:traefik.${DOMAINNAME}"  
+      - "traefik.port=8080"
+      - "traefik.docker.network=traefik_proxy"
+      - "traefik.frontend.headers.SSLRedirect=true"
+      - "traefik.frontend.headers.STSSeconds=315360000"
+      - "traefik.frontend.headers.browserXSSFilter=true"
+      - "traefik.frontend.headers.contentTypeNosniff=true"
+      - "traefik.frontend.headers.forceSTSHeader=true"
+      - "traefik.frontend.headers.SSLHost=${DOMAINNAME}"
+      - "traefik.frontend.headers.STSIncludeSubdomains=true"
+      - "traefik.frontend.headers.STSPreload=true"
+      - "traefik.frontend.headers.frameDeny=true"
     volumes:
-      - ${HOME}/.config/emby:/config # config files
-      - /media:/media # media library
-  
+      - ${HOME}/.config/traefik:/etc/traefik # config files
+      - /var/run/docker.sock:/var/run/docker.sock
+
 
   portainer:
     container_name: portainer
     image: portainer/portainer
-    network_mode: host
+    restart: unless-stopped
     command: -H unix:///var/run/docker.sock
+    ports: 
+      - "9001:9000"
+    networks:
+      - traefik_proxy
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - portainer_data:/data
+    environment:
+      - TZ=${TZ}
+    labels:
+      - "traefik.enable=true"
+      - "traefik.backend=portainer"
+      - "traefik.frontend.rule=Host:portainer.${DOMAINNAME}"  
+      - "traefik.port=9000"
+      - "traefik.docker.network=traefik_proxy"
+      - "traefik.frontend.headers.SSLRedirect=true"
+      - "traefik.frontend.headers.STSSeconds=315360000"
+      - "traefik.frontend.headers.browserXSSFilter=true"
+      - "traefik.frontend.headers.contentTypeNosniff=true"
+      - "traefik.frontend.headers.forceSTSHeader=true"
+      - "traefik.frontend.headers.SSLHost=${DOMAINNAME}"
+      - "traefik.frontend.headers.STSIncludeSubdomains=true"
+      - "traefik.frontend.headers.STSPreload=true"
+      - "traefik.frontend.headers.frameDeny=true"
 
 volumes:
   portainer_data:
+
+networks:
+  traefik_proxy:
+    external:
+      name: traefik_proxy
+  default:
+    driver: bridge
