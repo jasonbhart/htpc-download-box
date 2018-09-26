@@ -6,17 +6,47 @@ services:
     image: dperson/openvpn-client:armhf
     cap_add:
       - net_admin # required to modify network interfaces
+    environment:
+      - TZ=${TZ} # timezone
+    read_only: true
+    tmpfs:
+      - /tmp
     restart: unless-stopped
+    security_opt:
+      - label:disable
+    stdin_open: true
+    tty: true
     volumes:
-      - /dev/net/tun:/dev/net/tun # tun device
+      - /dev/net/tun:/dev/net/tun:z # tunnel device
       - ${HOME}/.vpn:/vpn # OpenVPN configuration
     ports:
       - 8112:8112 # port for Deluge web UI to be reachable from local network
     command: '-d -r 10.1.10.0/24' # route local network traffic
 
+  samba:
+    container_name: samba
+    image: dperson/samba:armhf
+    environment:
+      - TZ=${TZ} # timezone
+#    read_only: true
+    tmpfs:
+      - /tmp
+    restart: unless-stopped
+    stdin_open: true
+    tty: true
+    network_mode: host
+    command: ["-w WORKGROUP", "-u admin;password", "-sMovies;/movies;yes;yes;yes;all;admin;admin;Movies", "-sTV Series;/series;yes;yes;yes;all;admin;admin;Movies", "-r", "-n"]
+    volumes:
+      - /media/series:/series:rw # download folder
+      - /media/movies:/movies:rw # download folder
+
   heimdall:
     container_name: heimdall
     image: lsioarmhf/heimdall:latest
+    environment:
+    read_only: true
+    tmpfs:
+      - /tmp
     restart: unless-stopped
     ports:
       - "80:80"
@@ -43,16 +73,6 @@ services:
       - "traefik.frontend.headers.STSIncludeSubdomains=true"
       - "traefik.frontend.headers.STSPreload=true"
       - "traefik.frontend.headers.frameDeny=true"
-
-  samba:
-    container_name: samba
-    image: dperson/samba:armhf
-    restart: always
-    network_mode: host
-    command: ["-w WORKGROUP", "-u admin;password", "-sMovies;/movies;yes;yes;yes;all;admin;admin;Movies", "-sTV Series;/series;yes;yes;yes;all;admin;admin;Movies", "-r", "-n"]
-    volumes:
-      - /media/series:/series:rw # download folder
-      - /media/movies:/movies:rw # download folder
 
   deluge:
     container_name: deluge
@@ -200,7 +220,7 @@ services:
       - /etc/localtime:/etc/localtime:ro
       - ${HOME}/.config/sonarr:/config # config files
       - /media/series:/tv # tv shows folder
-      - /media/ongoing:/downloads # download folder
+      - /media/ongoing/completed:/downloads/completed # download folder
     labels:
       - "traefik.enable=true"
       - "traefik.backend=sonarr"
@@ -226,6 +246,15 @@ services:
     networks:
       - default
       - traefik_proxy
+    environment:
+      - PUID=${PUID} # default user id, for downloaded files access rights
+      - PGID=${PGID} # default group id, for downloaded files access rights
+      - TZ=${TZ} # timezone
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - ${HOME}/.config/radarr:/config # config files
+      - /media/movies:/movies # movies folder
+      - /media/ongoing/completed:/downloads/completed # download folder
     labels:
       - "traefik.enable=true"
       - "traefik.backend=radarr"
@@ -241,52 +270,6 @@ services:
       - "traefik.frontend.headers.STSIncludeSubdomains=true"
       - "traefik.frontend.headers.STSPreload=true"
       - "traefik.frontend.headers.frameDeny=true"
-    environment:
-      - PUID=${PUID} # default user id, for downloaded files access rights
-      - PGID=${PGID} # default group id, for downloaded files access rights
-      - TZ=${TZ} # timezone
-    volumes:
-      - /etc/localtime:/etc/localtime:ro
-      - ${HOME}/.config/radarr:/config # config files
-      - /media/movies:/movies # movies folder
-      - /media/ongoing:/downloads # download folder
-
-#  plex-server:
-#    container_name: plex-server
-#    image: lsioarmhf/plex:latest
-#    restart: unless-stopped
-#    ports:
-#      - "32400:32400"
-#      - "32400:32400/udp"
-#      - "32469:32469"
-#      - "32469:32469/udp"
-#      - "1900:1900/udp"
-#    networks:
-#      - traefik_proxy
-#    environment:
-#      - TZ=${TZ} # timezone
-#      - PUID=${PUID} # default user id, for downloaded files access rights
-#      - PGID=${PGID} # default group id, for downloaded files access rights
-#    volumes:
-#      - ${HOME}/.plex/db:/config # plex database
-#      - /media/ongoing/transcode:/transcode # temp transcoded files
-#      - /media:/data # media library
-#    labels:
-#      - "traefik.enable=true"
-#      - "traefik.backend=plexms"
-#      - "traefik.frontend.rule=Host:plex.${DOMAINNAME}"
-#      - "traefik.port=32400"
-#      - "traefik.protocol=http"
-#      - "traefik.docker.network=traefik_proxy"
-#      - "traefik.frontend.headers.SSLRedirect=true"
-#      - "traefik.frontend.headers.STSSeconds=315360000"
-#      - "traefik.frontend.headers.browserXSSFilter=true"
-#      - "traefik.frontend.headers.contentTypeNosniff=true"
-#      - "traefik.frontend.headers.forceSTSHeader=true"
-#      - "traefik.frontend.headers.SSLHost=${DOMAINNAME}"
-#      - "traefik.frontend.headers.STSIncludeSubdomains=true"
-#      - "traefik.frontend.headers.STSPreload=true"
-#      - "traefik.frontend.headers.frameDeny=true"
 
   traefik:
     container_name: traefik
@@ -307,6 +290,9 @@ services:
       - DOMAINNAME=${DOMAINNAME}
       - CLOUDFLARE_EMAIL=jasonbhart@gmail.com 
       - CLOUDFLARE_API_KEY=4f326d3ccb01ede7180bf0ef1287aee7b220a 
+    volumes:
+      - ${HOME}/.config/traefik:/etc/traefik # config files
+      - /var/run/docker.sock:/var/run/docker.sock
     labels:
       - "traefik.enable=true"
       - "traefik.backend=traefik"
@@ -322,9 +308,6 @@ services:
       - "traefik.frontend.headers.STSIncludeSubdomains=true"
       - "traefik.frontend.headers.STSPreload=true"
       - "traefik.frontend.headers.frameDeny=true"
-    volumes:
-      - ${HOME}/.config/traefik:/etc/traefik # config files
-      - /var/run/docker.sock:/var/run/docker.sock
 
 
   portainer:
@@ -333,7 +316,7 @@ services:
     restart: unless-stopped
     command: -H unix:///var/run/docker.sock
     ports: 
-      - "9001:9000"
+      - "9000:9000"
     networks:
       - traefik_proxy
     volumes:
