@@ -196,6 +196,19 @@ Optional steps described below that you may wish to skip:
 
 - Using newsgroups (Usenet): you can skip NZBGet installation and all related Sonarr/Radarr indexers configuration if you wish to use torrents only.
 
+### Local environment file
+
+We will be referencing local environment variables which are set in a text file named `.env`, residing in the same folder as the docker-compose files. The file should be similar to:
+```.env
+PUID=1000
+PGID=1000
+TZ=America/Los_Angeles
+DOMAINNAME=change-me.com
+```
+I am assuming you are installing this onto a fresh installation where the user running everything is the first user created on this Linux installation.  If not adjust the UUID and GUID to that of the user you will be running the Docker Compose files with.
+
+You will need to change the TZ setting to match your Linux timezone string which matches your timezone, as well as change the domain name to the one you will use with CloudFlare (or another DNS provider which can accept API calls to update the external IP address of the modem/router). 
+
 ### Setup Deluge
 
 #### Docker container
