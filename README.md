@@ -143,8 +143,7 @@ You can also use a Raspberry Pi, a Synology NAS, a Windows or Mac computer. The 
 
 **Media Center**:
 
-- [Plex](https://plex.tv): media center server with streaming transcoding features, useful plugins and a beautiful UI. Clients available for a lot of systems (Linux/OSX/Windows, Web, Android, Chromecast, Android TV, etc.)
-- [Sub-Zero](https://github.com/pannal/Sub-Zero.bundle): subtitle auto-download channel for Plex
+- [Plex](https://plex.tv): media center server with streaming transcoding features, useful plugins and a beautiful UI. Clients available for a lot of systems (Linux/OSX/Windows, Web, Android, Chromecast, Android TV, etc.) NOTE: not included by default due to resource constraints of single board computers (RAM and processing power for transcoding); suggest installing this on a different PC and mapping network drives to the seedbox folders via Samba.
 
 ## Installation guide
 
@@ -186,24 +185,16 @@ services:
 
   deluge:
     container_name: deluge
-    image: linuxserver/deluge:102
-    network_mode: host # run on the host network directly, web UI on port 8112
-    environment:
-      - PUID=1000 # default user id, for downloaded files access rights
-      - PGID=1000 # default group id, for downloaded files access rights
-      - TZ=Europe/Paris # timezone
-    volumes:
-      - /media/${USER}/data1/downloads/deluge:/downloads # download folder
-      - ${HOME}/.config/deluge:/config # config files
+...
 ```
 
 Things to notice:
 
-- replace PUID and GUID with your own user UID and GID (run `id $USER` to get them)
-- I use the host network to simplify configuration. Important ports are `8112` (web UI) and `58846` (bittorrent daemon).
-- Set both volumes accordingly to your desired setup. I chose to store downloaded files on an external volume, and configuration files in my HOME directory.
+- define PUID and GUID with your own user UID and GID (run `id $USER` to get them) in a .env file residing in the same directory as the docker-compose file.
+- The network Deluge uses is the same as used for the VPN service. This segregates all traffic from Deluge and forces it over the VPN tunnel. 
+- Set both volumes accordingly to your desired setup. I chose to store downloaded files on an external volume, and configuration files in a hidden sub-directory (.config) off my HOME directory.
 
-Then run the container with `docker-compose up -d`.
+Then run the container with `docker-compose -f <docker-compose-file-name> up -d`.
 To follow container logs, run `docker-compose logs -f deluge`.
 
 #### Configuration
@@ -212,15 +203,31 @@ You should be able to login on the web UI (`localhost:8112`, replace `localhost`
 
 ![Deluge Login](img/deluge_login.png)
 
-The default password is `deluge`. You are asked to modify it, I chose to set an empty one since deluge won't be accessible from outside my local network.
+The default password is `deluge`. You are asked to modify it, I chose to set an easy one since deluge won't be accessible from outside my local network. NOTE: you must set some password or Heimdall will not know to ping Deluge for stats, so just keep it easy to remember and simple to type.
 
 The running deluge daemon should be automatically detected and appear as online, you can connect to it.
 
 ![Deluge daemon](img/deluge_daemon.png)
 
-You may want to change the download directory. I like to have to distinct directories for incomplete (ongoing) downloads, and complete (finished) ones.
-Also, I set up a blackhole directory: every torrent file in there will be downloaded automatically. This is useful for Jackett manual searches. You should activate `autoadd` in the plugins section: it adds supports for `.magnet` files.
+You may want to change the download directory. I like to have two distinct directories for incomplete (ongoing) downloads, and complete (finished) ones. These paths must be the same as they are set in Radarr and Sonarr or else these tools will not be able to find completed downloads.  This is because Sonarr and Radarr communicate with Deluge via its API and Deluge will notify the requesting tool when a file is completed and ready for import. 
 
+Also, I set up a blackhole directory: every torrent file in there will be downloaded automatically. This is useful for Jackett manual searches. 
+
+If you use Torrents a lot, you may want to activate `autoadd` in the plugins section: it adds supports for `.magnet` files. If you do want to use magnet files, make sure you do not disable 'DHT' in Deluge.
+
+I suggest downloading a 3rd party configuration plugin for Deluge which will allow you to set some parameters which arent easily accesible from the user interface.
+These parameters are explained here: ![libtorrent manual](https://www.libtorrent.org/tuning.html)
+
+The configuration plugin is available here: ![ltConfig](https://github.com/ratanakvlun/deluge-ltconfig/releases)
+
+Download the .egg file and go into Deluge Preferences and select the Plugins Category. Click the Install button and upload the .egg file.
+
+Once installed, a new Preferences Category will appear called 'ltConfig'.  Click the newly added list item and then select 'High Performance Seed' from the drop-down list.  Before hitting 'Apply', scroll down to 'use_read_cache' and put a check in the checkbox to the left of the Name (if one doesn't appear already).  This show now allow you to uncheck the Setting. This keeps RAM usage modest at a slight performance hit.  Without this Deluge can use an excessive amount of RAM and cause a lot of extra overhead caused by swapping. 
+
+One additional setting which was needed for some VPN providers (PIA) is to disable uTP. If you see a large amount of Torrent activity after starting Deluge and then it slows down to nothing, this is the first thing you should try to cure this.  Use the 'ltConfig' plugin to disable 'enable_incoming_utp' and 'enable_outgoing_utp' in the same way as disabled 'use_read_cache' above.
+
+After all settings are as you want, click the Apply button.  Most of these settings will be applied immediately but some may require restarting the container.
+ 
 ![Deluge paths](img/deluge_path.png)
 
 You can also tweak queue settings, defaults are fairly small. Also you can decide to stop seeding after a certain ratio is reached. That will be useful for Sonarr, since Sonarr can only remove finished downloads from deluge when the torrent has stopped seeding. Setting a very low ratio is not very fair though !
