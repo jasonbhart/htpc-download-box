@@ -116,34 +116,70 @@ The server has transcoding abilities: it automatically transcodes video quality 
 
 ## Hardware configuration
 
-I'm using an old [Proliant MicroServer N54L](http://www.minimachines.net/promos-et-sorties/bon-plan-un-micro-serveur-hp-proliant-4-emplacements-a-169e-371) (2 cores, 2.20GHz) that I tweaked a bit to have 6GB RAM, an additional graphic card for better Full HD decoding, and an additional 2TB disk for data.
+I'm using an [Odroid C2](https://www.hardkernel.com/main/products/prdt_info.php?g_code=G145457216438) (4 cores, 1.50GHz, arm8, 2GB RAM), with a 4TB USB disk for data.
 
-It has Ubuntu 17.10.1 with Docker installed.
+You can also use a Raspberry Pi3B, although performance will be a downgrade since the OS is 32bit and it only has 1GB of RAM. I have included a version of the Docker Compose file for this platform as well. 
 
-You can also use a Raspberry Pi, a Synology NAS, a Windows or Mac computer. The stack should work fine on all these systems, but you'll have to adapt the Docker stack below to your OS. I'll only focus on a standard Linux installation here.
+## System setup
+
+I'm running the latest Ubuntu port provided by the Odroid manufacturer.  Make sure you run apt-get update/upgrade prior to installing anything else.
+
+I have also installed 'screen' to allow keeping an 'admin' session logged in running top, should that be needed.
+
+I also encourage the installation of UFW (uncomplicated firewall) via apt-get.  To use with Docker you will need to follow these instructions: (https://www.techrepublic.com/article/how-to-fix-the-docker-and-ufw-security-flaw/). After installation, open ports for:
+- SSH
+- 80/tcp (Heimdall HTTP)
+- 443/tcp (Heimdall HTTPS)
+- 8112/tcp (Deluge)
+- 6789/tcp (NZBGet)
+- 8989/tcp (Sonarr)
+- 7878/tcp (Radarr)
+- 5076/tcp (NZBHydra2)
+- 9117/tcp (Jackett)
+- 9000/tcp (Portainer)
+- 445/tcp (Samba)                  
+- 139/tcp (Samba)                 
+- 138/udp (Samba)                 
+- 137/udp (Samba)
+- 6660/tcp (Traefik unencripted; can be changed)
+- 6661/tcp (Traefik encripted; can be changed)
+
+## Docker
+The easiest way to install Docker is by using the command (do this as root):
+`curl -fsSL get.docker.com -o get-docker.sh && sh get-docker.sh`
+
+You must install Python PIP to install Docker Compose.
+`sudo apt-get install python-pip`
+
+`sudo python -m pip install docker-compose`
 
 ## Software stack
 
 ![Architecture Diagram](img/architecture_diagram.png)
 
 **Downloaders**:
-
 - [Deluge](http://deluge-torrent.org): torrent downloader with a web UI
 - [NZBGet](https://nzbget.net): usenet downloader with a web UI
+
+**Search**:
 - [Jackett](https://github.com/Jackett/Jackett): API to search torrents from multiple indexers
+- [NZBHydra2](https://github.com/theotherp/nzbhydra2): API to search nzbs from multiple indexers
 
 **Download orchestration**:
-
-- [Sonarr](https://sonarr.tv): manage TV show, automatic downloads, sort & rename
+- [Sonarr](https://sonarr.tv): manage TV shows to watch for, automatic downloads, sort & rename
 - [Radarr](https://radarr.video): basically the same as Sonarr, but for movies
 
 **VPN**:
+- [OpenVPN](https://openvpn.net/) client configured with [Private Internet Access](https://www.privateinternetaccess.com/) access for torrent traffic ONLY
 
-- [OpenVPN](https://openvpn.net/) client configured with a [privateinternetaccess.com](https://www.privateinternetaccess.com/) access
+**Reverse Proxy**:
+- [Traefik](https://github.com/containous/traefik): allows selective and secured external internet access to the various tools 
 
-**Media Center**:
+**Docker continer management**:
+- [Portainer](https://github.com/portainer/portainer): provides Docker management GUI incase of emergency 
 
-- [Plex](https://plex.tv): media center server with streaming transcoding features, useful plugins and a beautiful UI. Clients available for a lot of systems (Linux/OSX/Windows, Web, Android, Chromecast, Android TV, etc.) NOTE: not included by default due to resource constraints of single board computers (RAM and processing power for transcoding); suggest installing this on a different PC and mapping network drives to the seedbox folders via Samba.
+**Media Center (optional)**:
+- [Plex](https://plex.tv): media center server with streaming transcoding features, useful plugins and a beautiful UI. Clients available for a lot of systems (Linux/OSX/Windows, Web, Android, Chromecast, Android TV, etc.) NOTE: not included by default in docker-compose files due to resource constraints of single board computers (RAM and processing power for transcoding); suggest installing this on a different PC and mapping network drives to the seedbox folders via Samba.
 
 ## Installation guide
 
