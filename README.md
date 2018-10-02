@@ -555,8 +555,8 @@ Sonarr should be available on `localhost:8989`. Go straight to the `Settings` ta
 ![Sonarr settings](img/sonarr_settings.png)
 
 Enable `Ignore Deleted Episodes`: if like me you delete files once you have watched them, this makes sure the episodes won't be re-downloaded again.
-In `Media Management`, you can choose to rename episodes automatically. This is a very nice feature I've been using for a long time; but now I choose to keep original names. Plex sub-zero plugins gives better results when the original filename (containing the usual `x264-EVOLVE[ettv]`-like stuff) is kept.
-In `profiles` you can set new quality profiles, default ones are fairly good. There is an important option at the bottom of the page: do you want to give priority to Usenet or Torrents for downloading episodes? I'm keeping the default Usenet first.
+
+In `Media Management`, you can choose to rename episodes automatically. This is a very nice feature I've been using for a long time.
 
 `Indexers` is the important tab: that's where Sonarr will grab information about released episodes. Nowadays a lot of Usenet indexers are relying on Newznab protocol: fill-in the URL and API key you are using. You can find some indexers on this [subreddit wiki](https://www.reddit.com/r/usenet/wiki/indexers). It's nice to use several ones since there are quite volatile. You can find suggestions on Sonarr Newznab presets. Some of these indexers provide free accounts with a limited number of API calls, you'll have to pay to get more. Usenet-crawler is one of the best free indexers out there.
 
@@ -637,9 +637,7 @@ radarr:
 Radarr Web UI is available on port 7878.
 Let's go straight to the `Settings` section.
 
-In `Media Management`, I chose to disable automatic movie renaming. Too bad, but it's helpful for Plex sub-zero plugin to find proper subtitles for the movie (ie. keep that `x264-720p-YIFY` tag to look for the right subtitle). I enable `Ignore Deleted Movies` to make sure movies that I delete won't be downloaded again by Radarr. I disable `Use Hardlinks instead of Copy` because I prefer to avoid messing around what's in my download area and what's in my movies area.
-
-In `Profiles` you can set new quality profiles, default ones are fairly good. There is an important option at the bottom of the page: do you want to give priority to Usenet or Torrents for downloading episodes? I'm keeping the default Usenet first.
+I enable `Ignore Deleted Movies` to make sure movies that I delete won't be downloaded again by Radarr. 
 
 As for Sonarr, the `Indexers` section is where you'll configure your torrent and nzb sources.
 
