@@ -216,11 +216,21 @@ You will need to change the TZ setting to match your Linux timezone string which
 We'll use deluge Docker image from linuxserver, which runs both the deluge daemon and web UI in a single container.
 
 ```yaml
-version: '3'
-services:
-
-  deluge:
     container_name: deluge
+    depends_on:
+      - vpn
+    image: lsioarmhf/deluge-aarch64:latest
+    restart: unless-stopped
+    network_mode: service:vpn # run on the vpn network
+    environment:
+      - PUID=${PUID} # default user id, for downloaded files access rights
+      - PGID=${PGID} # default group id, for downloaded files access rights
+      - TZ=${TZ} # timezone
+    volumes:
+      - /media/usb1/ongoing/complete:/downloads/complete # download folder
+      - /media/usb1/ongoing/incomplete:/downloads/incomplete # download folder
+      - /media/usb1/ongoing/torrent-blackhole:/downloads/torrent-blackhole # put .torrent files
+      - ${HOME}/.config/deluge:/config # config files
 ...
 ```
 
@@ -235,13 +245,13 @@ To follow container logs, run `docker-compose logs -f deluge`.
 
 #### Configuration
 
-You should be able to login on the web UI (`localhost:8112`, replace `localhost` by your machine ip if needed).
+You should be able to login on the web UI (`localhost:8112`, replace `localhost` by your download box ip if needed).
 
 ![Deluge Login](img/deluge_login.png)
 
-The default password is `deluge`. You are asked to modify it, I chose to set an easy one since deluge won't be accessible from outside my local network. NOTE: you must set some password or Heimdall will not know to ping Deluge for stats, so just keep it easy to remember and simple to type.
+The default password is `deluge`. You are asked to modify it, I chose to set an easy one since deluge won't be accessible from outside my local network. NOTE: you must set some form of a password or Heimdall will not know to ping Deluge for stats, so just keep it easy to remember and simple to type.
 
-The running deluge daemon should be automatically detected and appear as online, you can connect to it.
+The running deluge daemon should be automatically detected and appear as online, where you can select to connect to it.
 
 ![Deluge daemon](img/deluge_daemon.png)
 
@@ -287,14 +297,13 @@ This must come up with some safety features:
 1. Traffic should be allowed through the VPN tunnel *only*, no leaky outgoing connection if the VPN is down
 1. Deluge Web UI should still be reachable from the local network
 
-Lucky me, someone already [set that up quite nicely](https://github.com/dperson/openvpn-client).
+Luckily, someone already [set that up quite nicely](https://github.com/dperson/openvpn-client).
 
 Point 1 is resolved through the OpenVPN configuration (`ping-restart` set to 120 sec by default).
 Point 2 is resolved through [iptables rules](https://github.com/dperson/openvpn-client/blob/master/openvpn.sh#L52-L87)
 Point 3 is also resolved through [iptables rules](https://github.com/dperson/openvpn-client/blob/master/openvpn.sh#L104)
 
-Configuration is explained on the [project page](https://github.com/dperson/openvpn-client), you can follow it.
-However it is not that easy depending on your VPN server settings.
+Configuration is explained on the [project page](https://github.com/dperson/openvpn-client), however it is not that easy to follow depending on your VPN server settings.
 I'm using a privateinternetaccess.com VPN, so here is how I set it up.
 
 #### privateinternetaccess.com custom setup
@@ -353,31 +362,29 @@ rcvbuf 393216 # (see https://winaero.com/blog/speed-up-openvpn-and-get-faster-sp
 Put it in the docker-compose file, and make deluge use the vpn container network:
 
 ```yaml
-vpn:
+  vpn:
     container_name: vpn
-    image: dperson/openvpn-client:latest
+    image: dperson/openvpn-client:<arch>
     cap_add:
       - net_admin # required to modify network interfaces
+    environment:
+      - TZ=${TZ} # timezone
+      - FIREWALL # setup a firewall to force all outbout traffic across VPN
+      - DNS # only use VPN providers dns to prevent DNS query leaks
+    tmpfs:
+      - /run
+      - /tmp
     restart: unless-stopped
+    security_opt:
+      - label:disable
+    stdin_open: true
+    tty: true
     volumes:
-      - /dev/net/tun:/dev/net/tun # tun device
+      - /dev/net/tun:/dev/net/tun:z # tunnel device
       - ${HOME}/.vpn:/vpn # OpenVPN configuration
     ports:
-      - 8112:8112 # port for deluge web UI to be reachable from local network
-    command: '-r 192.168.1.0/24' # route local network traffic
-
- deluge:
-    container_name: deluge
-    image: linuxserver/deluge:102
-    restart: unless-stopped
-    network_mode: service:vpn # run on the vpn network
-    environment:
-      - PUID=1000 # default user id, for downloaded files access rights
-      - PGID=1000 # default group id, for downloaded files access rights
-      - TZ=Europe/Paris # timezone
-    volumes:
-      - /media/${USER}/data1/downloads/deluge:/downloads # download folder
-      - ${HOME}/.config/deluge:/config # config files
+      - 8112:8112 # port for Deluge web UI to be reachable from local network
+    command: '-d -r 10.1.10.0/24' # route local network traffic (change to the subnet IP of your local network)
 ```
 
 Notice how deluge is now using the vpn container network, with deluge web UI port exposed on the vpn container for local network access.
