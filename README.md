@@ -255,6 +255,10 @@ The running deluge daemon should be automatically detected and appear as online,
 
 ![Deluge daemon](img/deluge_daemon.png)
 
+Once you are connected, click on the Prefences button at the top of browser window. From here you will modify several of the default settings. These will persist across reboots after they are changed.
+
+![Deluge paths](img/deluge_path.png)
+
 You may want to change the download directory. I like to have two distinct directories for incomplete (ongoing) downloads, and complete (finished) ones. These paths must be the same as they are set in Radarr and Sonarr or else these tools will not be able to find completed downloads.  This is because Sonarr and Radarr communicate with Deluge via its API and Deluge will notify the requesting tool when a file is completed and ready for import. 
 
 Also, I set up a blackhole directory: every torrent file in there will be downloaded automatically. This is useful for Jackett manual searches. 
@@ -274,7 +278,6 @@ One additional setting which was needed for some VPN providers (PIA) is to disab
 
 After all settings are as you want, click the Apply button.  Most of these settings will be applied immediately but some may require restarting the container.
  
-![Deluge paths](img/deluge_path.png)
 
 You can also tweak queue settings, defaults are fairly small. Also you can decide to stop seeding after a certain ratio is reached. That will be useful for Sonarr, since Sonarr can only remove finished downloads from deluge when the torrent has stopped seeding. Setting a very low ratio is not very fair though !
 
@@ -474,73 +477,40 @@ Default configuration suits me well, but don't hesitate to have a look at the `P
 
 You can manually add .nzb files to download, but the goal is of course to have Sonarr and Radarr take care of it automatically.
 
-### Setup Plex
+### Setup Plex (optional)
 
-#### Media Server Docker Container
+I recommend installing Plex Media Server NOT on the SBC but on a Windows or Macintosh desktop computer you already have running on the same network.  This will help offload some of the processor load of streaming your content from the SBC and free up RAM for other services.
 
-Luckily for us, Plex team already provides a maintained [Docker image for pms](https://github.com/plexinc/pms-docker).
+[Download Plex Media Server](https://www.plex.tv/media-server-downloads/)
 
-We'll use the host network directly, and run our container with the following configuration:
-
-```yaml
-plex-server:
-    container_name: plex-server
-    image: plexinc/pms-docker:1.10.1.4602-f54242b6b
-    restart: unless-stopped
-    environment:
-      - TZ=Europe/Paris # timezone
-    network_mode: host
-    volumes:
-      - ${HOME}/.plex/db:/config # plex database
-      - ${HOME}/.plex/transcode:/transcode # temp transcoded files
-      - /media/${USER}/data1/downloads/complete:/data # media library
-```
-
-It's important to set volumes correctly for configuration to be persisted.
-
-Let's run it !
-`docker-compose up -d`
+Additionally, if you have a paid Plex Pass, and a computer with a GPU in it, you can setup Plex to use your very efficient GPU to handle all transcoding needed. [See here for instructions](https://support.plex.tv/articles/115002178853-using-hardware-accelerated-streaming/)   
 
 #### Configuration
 
-Plex Web UI should be available at `localhost:32400` (replace `localhost` by your server ip if needed).
+Plex Web UI should be available at `localhost:32400` (replace `localhost` with the ip of the computer where it is installed, if needed).
 You'll have to login first (registration is free), then Plex will ask you to add your libraries.
 I have two libraries:
 
 - Movies
 - TV shows
 
-Both are materialized by different folders in my media library mounted volume, so I just added them.
+I have 2 mapped network drives (thank you Samba) on my Windows computer where I am running Plex Media Server.  These mapped drives connect to the respective share I have setup on the download/seed box, one for movies and the other for TV shows.  To find the shares on your Windows computer, the SBC Samba docker container can be found by using the UNC of \\odroid (or \\raspberrypi). If you changed the default hostname in Linux, then it will use this name instead. These shares must be mapped prior to using them with Plexon Windows and setting up your libraries. 
 
-Plex will then scan your files and gather extra content; it may take some time according to how large your directory is.
+After setting up your libraries, Plex will scan your files and gather extra content; it may take some time, but you can watch it happen by logging into the Plex UI.
 
-A few things I like to configure in the settings:
+A few things I like to configure in the Plex settings:
 
-- Set time format to 24 hours (never understood why some people like 12 hours)
 - Tick "Update my library automatically"
 
-You can already watch your stuff through the Web UI. Note that it's also available from an authentified public URL proxified by Plex servers (see `Settings/Server/Remote Access`), you may note the URL or choose to disable public forwarding.
-
-#### Download subtitles automatically with sub-zero
-
-Do you know [subliminal](https://github.com/Diaoul/subliminal)?
-It's a cli/libraries made to grab subtitles automatically. Give it a file or directory, it will parse all existing videos in there, and try to download the most appropriate subtitles from several subtitle providers, based on video properties and names.
-Since subtitle sync is tightly related to the version of the video, try as much as possible to keep release information in the video filename. You know, stuff such as 'mytvshow.HDTV.x264-SVA[ettv].mp4'.
-
-Based on subliminal, a plugin called [sub-zero](https://github.com/pannal/Sub-Zero.bundle) recently landed in Plex channels. Running as a Plex agent, it will fetch subtitle automatically as new files get added to your library. It also runs in background, periodically fetching missing subtitles.
-
-To install it, just go to Plex channels, look for sub-zero, and activate it.
-
-Then, configure it as the agent for your libraries (see the [official instructions](https://github.com/pannal/Sub-Zero.bundle/wiki/Agent-configuration)), and configure it as you wish. I set my primary language to french and secondary one to english.
-
-You can provide your addic7ed and OpenSubtitles credentials for API requests.
+You can already watch your stuff through the Web UI. Note that it's also available from a login-secured public URL proxified by Plex servers (see `Settings/Server/Remote Access`), note the access URL or choose to disable public forwarding.
 
 #### Setup Plex clients
 
-Plex clients are available for most devices. I use it on my Android phone, my wife uses it on her iPhone, we use it on a Chromecast in the bedroom, and we also use Plex Media Center directly on the same computer where the server is running, close to the living room TV. It also works fine on the PS4 and on my Raspberry Pi. Nothing particular to configure, just download the app, log into it, enter the validation code and there you go.
+Plex clients are available for most devices. I use it on my Android phone, my wife uses it on her Amazon Kindle Fire, we use it on a Chromecast in the bedroom, and an Amazon Fire TV Stick in the Living Room. Nothing particular to configure, just download the app, log into it, enter the validation code and you are done.
 
 On a Linux Desktop, there are several alternatives.
-Historically, Plex Home Theater, based on XBMC/Kodi was the principal media player, and by far the client with the most features. It's quite comparable to XBMC/Kodi, but fully integrates with Plex ecosystem. Meaning it remembers what you're currently watching so that you can pause your movie in the bedroom while you continue watching it in the toilets \o/.
+Historically, Plex Home Theater, based on XBMC/Kodi was the principal media player, and by far the client with the most features. It's quite comparable to XBMC/Kodi, but fully integrates with Plex ecosystem. 
+
 Recently, Plex team decided to move towards a completely rewritten player called Plex Media Player. It's not officially available for Linux yet, but can be [built from sources](https://github.com/plexinc/plex-media-player). A user on the forums made [an AppImage for it](https://forums.plex.tv/discussion/278570/plex-media-player-packages-for-linux). Just download and run, it's plug and play. It has a very shiny UI, but lacks some features of PHT. For example: editing subtitles offset.
 
 ![Plex Media Player](img/plex_media_player.jpg)
@@ -548,8 +518,6 @@ Recently, Plex team decided to move towards a completely rewritten player called
 If it does not suit you, there is also now an official [Kodi add-on for Plex](https://www.plex.tv/apps/computer/kodi/). [Download Kodi](http://kodi.wiki/view/HOW-TO:Install_Kodi_for_Linux), then browse add-ons to find Plex.
 
 Also the old good Plex Home Theater is still available, in an open source version called [OpenPHT](https://github.com/RasPlex/OpenPHT).
-
-Personal choice: after using OpenPHT for a while I'll give Plex Media Player a try. I might miss the ability to live-edit subtitle offset, but sub-zero is supposed to do its job. We'll see.
 
 ### Setup Sonarr
 
