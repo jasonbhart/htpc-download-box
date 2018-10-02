@@ -8,8 +8,11 @@ services:
       - net_admin # required to modify network interfaces
     environment:
       - TZ=${TZ} # timezone
-    read_only: true
+      - FIREWALL
+      - DNS
+#    read_only: true
     tmpfs:
+      - /run
       - /tmp
     restart: unless-stopped
     security_opt:
@@ -20,7 +23,8 @@ services:
       - /dev/net/tun:/dev/net/tun:z # tunnel device
       - ${HOME}/.vpn:/vpn # OpenVPN configuration
     ports:
-      - 8112:8112 # port for deluge web UI to be reachable from local network
+      - 8112:8112 # port for Deluge web UI to be reachable from local network
+      - 9091:9091 # port for Transmission web UI to be reachable from local network
     command: '-d -r 10.1.10.0/24' # route local network traffic
 
   samba:
@@ -37,14 +41,14 @@ services:
     network_mode: host
     command: ["-w WORKGROUP", "-u admin;password", "-sMovies;/movies;yes;yes;yes;all;admin;admin;Movies", "-sTV Series;/series;yes;yes;yes;all;admin;admin;Movies", "-r", "-n"]
     volumes:
-      - /media/series:/series:rw # download folder
-      - /media/movies:/movies:rw # download folder
+      - /media/usb1/series:/series:rw # download folder
+      - /media/usb1/movies:/movies:rw # download folder
 
   heimdall:
     container_name: heimdall
-    image: lsioarmhf/heimdall:latest
+    image: lsioarmhf/heimdall-aarch64:latest
     environment:
-    read_only: true
+#    read_only: true
     tmpfs:
       - /tmp
     restart: unless-stopped
@@ -78,7 +82,7 @@ services:
     container_name: deluge
     depends_on:
       - vpn
-    image: lsioarmhf/deluge-aarch64:latest
+    image: lsioarmhf/deluge-aarch64:80
     restart: unless-stopped
     network_mode: service:vpn # run on the vpn network
     environment:
@@ -221,6 +225,7 @@ services:
       - ${HOME}/.config/sonarr:/config # config files
       - /media/usb1/series:/tv # tv shows folder
       - /media/usb1/ongoing/completed:/downloads/completed # download folder
+      - /media/usb1/ongoing/incomplete:/downloads/incomplete # download folder
     labels:
       - "traefik.enable=true"
       - "traefik.backend=sonarr"
@@ -278,6 +283,14 @@ services:
     networks:
       - default
       - traefik_proxy
+    depends_on:
+      - deluge
+      - nzbget
+      - sonarr
+      - radarr
+      - hydra 
+      - jackett
+      - portainer
     ports:
       - "6660:6660"
       - "6661:6661"
