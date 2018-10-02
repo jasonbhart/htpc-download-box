@@ -1,6 +1,6 @@
-# HTPC Download Box
+# HTPC (mini) Download (Seed) Box for Single-Board Computers (like the Raspberry Pi and Odroid) 
 
-Sonarr / Radarr / Jackett / NZBGet / Deluge / OpenVPN / Plex
+Sonarr / Radarr / NZBHydra2 / Jackett / NZBGet / Deluge / OpenVPN / Traefik / Portainer
 
 TV shows and movies download, sort, with the desired quality and subtitles, behind a VPN (optional), ready to watch, in a beautiful media player.
 All automated.
@@ -95,30 +95,28 @@ Sonarr and Radarr are plugged to downloaders for our 2 different systems:
 - [NZBGet](https://nzbget.net/) handles Usenet (newsgroups) binary downloads.
 - [Deluge](http://deluge-torrent.org/) handles torrent download.
 
-Both are daemons coming with a nice Web UI, making them perfect candidates for being installed on a server. Sonarr & Radarr already have integration with them, meaning they rely on each service API to pass on downloads, request download status and handle finished downloads.
+Both come with a nice Web UI, making them perfect candidates for being installed on a server. Sonarr & Radarr already have integration with these clients, meaning they rely on each service's API to request a download, status and handle finished downloads.
 
 Both are very standard and popular tools. I'm using them for their integration with Sonarr/Radarr but also as standalone downloaders for everything else.
 
-For security and anonymity reasons, I'm running Deluge behind a VPN connection. All incoming/outgoing traffic from deluge is encrypted and goes out to an external VPN server. Other service stay on my local network. This is done through Docker networking stack (more to come on the next paragraphs).
-
-### Organize libraries, fetch subtitles and play videos with Plex
-
-[Plex](https://www.plex.tv/) Media Server organize all your medias as libraries. You can set up one for TV shows and another one for movies.
-It automatically grabs metadata for each new release (description, actors, images, release date). A very nice feature that we'll use a lot is the [sub-zero plugin](https://github.com/pannal/Sub-Zero.bundle). Whenever a new video arrives in Plex library, sub-zero automatically searches and downloads the most appropriate subtitle from a list of subtitle providers, based on several criterias (release name, quality, popularity, etc).
-
-![Plex Web UI](img/plex_macbook.jpg)
-
-Plex keeps track of your position in the entire library: what episode of a given TV show season you've watched, what movie you've not watched yet, what episode was added to the library since last time. It also remembers where you stopped within a video file. Basically you can pause a movie in your bedroom, then resume playback from another device in your bathroom.
-
-Plex comes with [clients](https://www.plex.tv/apps/) in a lot of different systems (Web UI, Linux, Windows, OSX, iOS, Android, Android TV, Chromecast, PS4, Smart TV, etc.) that allow you to display and watch all your shows/movies in a nice Netflix-like UI.
-
-The server has transcoding abilities: it automatically transcodes video quality if needed (eg. stream your 1080p movie in 480p if watched from a mobile with low bandwidth).
+For security and anonymity reasons, I'm running Deluge behind a VPN connection. All incoming/outgoing traffic from deluge is encrypted and goes out to an external VPN server. Other services run on the local network. This is done through Docker networking stack (more to come on the next paragraphs).
 
 ## Hardware configuration
 
 I'm using an [Odroid C2](https://www.hardkernel.com/main/products/prdt_info.php?g_code=G145457216438) (4 cores, 1.50GHz, arm8, 2GB RAM), with a 4TB USB disk for data.
 
 You can also use a Raspberry Pi3B, although performance will be a downgrade since the OS is 32bit and it only has 1GB of RAM. I have included a version of the Docker Compose file for this platform as well. 
+
+Your USB storage options may have additional power requirements then can be services by the default SBC power supply. This will be especially true with mechanical hard drive units (vs SSD) without their own dedicated power supply.  You may need to get a more powerful SBC power supply (3A-4A) or a powered USB hub to connect your storage devices.
+
+You may also have a desire to keep these drives in NTFS format to allow for connecting them directly to a Windows computer on occasion for direct access to downloaded media.  While there are drivers for Linux (NTFS-3G) which will facilitate this, I have found them to be unreliable in cases where very large files are being manipulated (such as here).  Additionally, if you start to have occasional power problems, caused by a power hungry drive, this driver doesn't handle failed writes very gracefully.  I suggest formatting the drive with ext4 (the native Ubuntu file format) and then use Samba (over the network) to access the files from Windows.  
+
+## Networking setup
+To make management easy I have used the DHCP reservation feature on my internet router/modem to give the same IP address to server everytime. This makes it easier to connect to it via SSH, but also allows for port forwarding rules to be setup on the router to work with Traefik reverse proxy.  
+
+You may want to make another DHCP reservation for the computer which is running Plex Media Server, so Sonarr and Radarr can update Plex with metadata about newly downloaded files.  This will allow you to setup the Plex integration settings in Sonarr and Radarr using the IP address of this other computer.
+
+Port forwarding on the router should be setup on 2 different ports (I picked 6660 and 6661) to forward traffic from the outside world to the reverse proxy daemon on the seed/download box.  
 
 ## System setup
 
