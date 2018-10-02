@@ -107,7 +107,7 @@ I'm using an [Odroid C2](https://www.hardkernel.com/main/products/prdt_info.php?
 
 You can also use a Raspberry Pi3B, although performance will be a downgrade since the OS is 32bit and it only has 1GB of RAM. I have included a version of the Docker Compose file for this platform as well. 
 
-Your USB storage options may have additional power requirements then can be services by the default SBC power supply. This will be especially true with mechanical hard drive units (vs SSD) without their own dedicated power supply.  You may need to get a more powerful SBC power supply (3A-4A) or a powered USB hub to connect your storage devices.
+Your USB storage options may have additional power requirements then can be services by the default SBC (Single-board computer) power supply. This will be especially true with mechanical hard drive units (vs SSD) without their own dedicated power supply.  You may need to get a more powerful SBC power supply (3A-4A) or a powered USB hub to connect your storage devices.
 
 You may also have a desire to keep these drives in NTFS format to allow for connecting them directly to a Windows computer on occasion for direct access to downloaded media.  While there are drivers for Linux (NTFS-3G) which will facilitate this, I have found them to be unreliable in cases where very large files are being manipulated (such as here).  Additionally, if you start to have occasional power problems, caused by a power hungry drive, this driver doesn't handle failed writes very gracefully.  I suggest formatting the drive with ext4 (the native Ubuntu file format) and then use Samba (over the network) to access the files from Windows.  
 
@@ -149,6 +149,9 @@ The easiest way to install Docker is by using the command (do this as root):
 You must install Python PIP to install Docker Compose.
 `sudo apt-get install python-pip`
 
+Make sure docker works fine:
+`docker run hello-world`
+
 `sudo python -m pip install docker-compose`
 
 ## Software stack
@@ -183,29 +186,15 @@ You must install Python PIP to install Docker Compose.
 
 ### Introduction
 
-The idea is to set up all these components as Docker containers in a `docker-compose.yml` file.
+The idea is to set up all these components as Docker containers in a `docker-compose-*.yml` file.
 We'll reuse community-maintained images (special thanks to [linuxserver.io](https://www.linuxserver.io/) for many of them).
 I'm assuming you have some basic knowledge of Linux and Docker.
-I'll try to maintain my own `docker-compose` file [here](https://github.com/sebgl/htpc-download-box/blob/master/docker-compose.yml).
 
-The stack is not really plug-and-play. You'll see that manual human configuration is required for most of these tools. Configuration is not fully automated (yet?), but is persisted on reboot. Some steps also depend on external accounts that you need to set up yourself (usenet indexers, torrent indexers, vpn server, plex account, etc.). We'll walk through it.
+The stack is not really plug-and-play. You'll see that manual configuration is required for most of these tools. Configuration is not fully automated (yet?), but is persisted on reboot. Some steps also depend on external accounts that you need to set up yourself (usenet indexers, torrent indexers, vpn server, plex account, etc.). We'll walk through it.
 
 Optional steps described below that you may wish to skip:
 
-- Using a VPN server for Deluge incoming/outgoing traffic.
-- Using newsgroups (Usenet): you can skip NZBGet installation and all related Sonarr/Radarr indexers configuration if you wish to use bittorrent only.
-
-### Install docker and docker-compose
-
-See the [official instructions](https://docs.docker.com/engine/installation/linux/docker-ce/ubuntu/#install-docker-ce-1) to install Docker.
-
-Then add yourself to the `docker` group:
-`sudo usermod -aG docker zao`
-
-Make sure it works fine:
-`docker run hello-world`
-
-Also install docker-compose (see the [official instructions](https://docs.docker.com/compose/install/#install-compose)).
+- Using newsgroups (Usenet): you can skip NZBGet installation and all related Sonarr/Radarr indexers configuration if you wish to use torrents only.
 
 ### Setup Deluge
 
@@ -250,9 +239,9 @@ Also, I set up a blackhole directory: every torrent file in there will be downlo
 If you use Torrents a lot, you may want to activate `autoadd` in the plugins section: it adds supports for `.magnet` files. If you do want to use magnet files, make sure you do not disable 'DHT' in Deluge.
 
 I suggest downloading a 3rd party configuration plugin for Deluge which will allow you to set some parameters which arent easily accesible from the user interface.
-These parameters are explained here: ![libtorrent manual](https://www.libtorrent.org/tuning.html)
+These parameters are explained here: [libtorrent manual](https://www.libtorrent.org/tuning.html)
 
-The configuration plugin is available here: ![ltConfig](https://github.com/ratanakvlun/deluge-ltconfig/releases)
+The configuration plugin is available here: [ltConfig](https://github.com/ratanakvlun/deluge-ltconfig/releases)
 
 Download the .egg file and go into Deluge Preferences and select the Plugins Category. Click the Install button and upload the .egg file.
 
@@ -300,7 +289,7 @@ I'm using a privateinternetaccess.com VPN, so here is how I set it up.
 *Note*: this section only applies for [PIA](https://privateinternetaccess.com) accounts.
 
 Download PIA OpenVPN [configuration files](https://privateinternetaccess.com/openvpn/openvpn.zip).
-In the archive, you'll find a bunch of `<country>.ovpn` files, along with 2 other important files: `crl.rsa.2048.pem` and `ca.rsa.2048.crt`. Pick the file associated to the country you'd like to connect to, for example `netherlands.ovpn`.
+In the archive, you'll find a bunch of `<country>.ovpn` files, along with 2 other important files: `crl.rsa.2048.pem` and `ca.rsa.2048.crt`. Pick the file associated to the country you'd like to connect to, for example `swiss.ovpn`.
 Copy the 3 files to `${HOME}/.vpn`.
 Create a 4th file `auth` with the following content:
 
@@ -311,18 +300,18 @@ Create a 4th file `auth` with the following content:
 
 You should now have 3 files in `${HOME}/.vpn`:
 
-- netherlands.ovpn
+- swiss.ovpn
 - vpn.auth
 - crl.rsa.2048.pem
 - ca.rsa.2048.crt
 
-Edit `netherlands.ovpn` (or any other country of your choice) to tweak a few things (see my comments on lines added or modified):
+Edit `swiss.ovpn` (or any other country of your choice) to tweak a few things (see my comments on lines added or modified):
 
 ```INI
 client
 dev tun
 proto udp
-remote nl.privateinternetaccess.com 1198
+remote swiss.privateinternetaccess.com 1198
 resolv-retry infinite
 nobind
 persist-key
@@ -332,7 +321,7 @@ auth sha1
 tls-client
 remote-cert-tls server
 auth-user-pass /vpn/vpn.auth # to be reachable inside the container
-comp-lzo
+comp-lzo no
 verb 1
 reneg-sec 0
 crl-verify /vpn/crl.rsa.2048.pem # to be reachable inside the container
@@ -340,6 +329,10 @@ ca /vpn/ca.rsa.2048.crt # to be reachable inside the container
 disable-occ
 keepalive 10 30 # send a ping every 10 sec and reconnect after 30 sec of unsuccessfull pings
 pull-filter ignore "auth-token" # fix PIA reconnection auth error that may occur every 8 hours
+tun-mtu 1400 # set tunnel MTU to smaller than maximum of connection to reduce fragmentation
+mssfix 1360 # set size which local vpn client will resize larger frames
+sndbuf 393216 # set explicit buffer size 
+rcvbuf 393216 # (see https://winaero.com/blog/speed-up-openvpn-and-get-faster-speed-over-its-channel/)
 ```
 
 #### Docker container
