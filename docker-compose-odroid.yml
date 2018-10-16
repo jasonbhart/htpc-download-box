@@ -24,7 +24,7 @@ services:
       - ${HOME}/.vpn:/vpn # OpenVPN configuration
     ports:
       - 8112:8112 # port for Deluge web UI to be reachable from local network
-      - 9091:9091 # port for Transmission web UI to be reachable from local network
+#      - 9091:9091 # port for Transmission web UI to be reachable from local network
     command: '-d -r 10.1.10.0/24' # route local network traffic
 
   samba:
@@ -39,10 +39,11 @@ services:
     stdin_open: true
     tty: true
     network_mode: host
-    command: ["-w WORKGROUP", "-u admin;password", "-sMovies;/movies;yes;yes;yes;all;admin;admin;Movies", "-sTV Series;/series;yes;yes;yes;all;admin;admin;Movies", "-r", "-n"]
+    command: ["-w WORKGROUP", "-uadmin;password;1000;1000", "-sMovies;/movies;yes;yes;yes;all;admin;admin;Movies", "-sTV Series;/series;yes;yes;yes;all;admin;admin;Movies", "-sXXX;/xxx;yes;yes;yes;all;admin;admin;XXX", "-r", "-n"]
     volumes:
       - /media/usb1/series:/series:rw # download folder
       - /media/usb1/movies:/movies:rw # download folder
+      - /media/usb3/xxx:/xxx:rw # download folder
 
   heimdall:
     container_name: heimdall
@@ -83,6 +84,7 @@ services:
     depends_on:
       - vpn
     image: lsioarmhf/deluge-aarch64:80
+#    image: lsioarmhf/deluge-aarch64:latest
     restart: unless-stopped
     network_mode: service:vpn # run on the vpn network
     environment:
@@ -125,8 +127,12 @@ services:
     volumes:
       - /media/usb1/ongoing/completed:/downloads/completed # download folder
       - /media/usb1/ongoing/incomplete:/downloads/intermediate # download folder
+      - /media/usb1/ongoing/nzb-queue:/downloads/queue # download temporary folder
+      - /media/usb1/ongoing/nzb-tmp:/downloads/tmp # download temporary folder
       - /media/usb1/ongoing/nzb-blackhole:/downloads/nzb # place where to put .nzb files
+      - /media/usb3/xxx:/downloads/completed/XXX # movies folder
       - ${HOME}/.config/nzbget:/config # config files
+      - ${HOME}/.config/nzbget/scripts:/downloads/scripts # config files
     labels:
       - "traefik.enable=true"
       - "traefik.backend=nzbget"
@@ -225,7 +231,6 @@ services:
       - ${HOME}/.config/sonarr:/config # config files
       - /media/usb1/series:/tv # tv shows folder
       - /media/usb1/ongoing/completed:/downloads/completed # download folder
-      - /media/usb1/ongoing/incomplete:/downloads/incomplete # download folder
     labels:
       - "traefik.enable=true"
       - "traefik.backend=sonarr"
