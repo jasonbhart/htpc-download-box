@@ -39,7 +39,7 @@ services:
     stdin_open: true
     tty: true
     network_mode: host
-    command: ["-w WORKGROUP", "-uadmin;password;1000;1000", "-sMovies;/movies;yes;yes;yes;all;admin;admin;Movies", "-sTV Series;/series;yes;yes;yes;all;admin;admin;Movies", "-sXXX;/xxx;yes;yes;yes;all;admin;admin;XXX", "-r", "-n"]
+    command: ["-w WORKGROUP", "-uadmin;password;1000;1000", "-sMovies;/movies;yes;yes;yes;all;admin;admin;Movies", "-sTV Series;/series;yes;yes;yes;all;admin;admin;Movies", "-sXXX;/xxx;yes;yes;yes;all;admin;admin;XXX", "-r", "-n", "-g socket options = TCP_NODELAY IPTOS_LOWDELAY SO_RCVBUF=65536 SO_SNDBUF=65536"]
     volumes:
       - /media/usb1/series:/series:rw # download folder
       - /media/usb1/movies:/movies:rw # download folder
@@ -47,7 +47,7 @@ services:
 
   heimdall:
     container_name: heimdall
-    image: lsioarmhf/heimdall-aarch64:latest
+    image: linuxserver/heimdall
     environment:
 #    read_only: true
     tmpfs:
@@ -62,7 +62,7 @@ services:
       - PGID=${PGID} # default group id, for downloaded files access rights
       - TZ=${TZ} # timezone
     volumes:
-      - ${HOME}/.config/heimdal:/config # config files
+      - /media/usb1/.config/heimdal:/config # config files
     labels:
       - "traefik.enable=true"
       - "traefik.backend=heimdall"
@@ -83,8 +83,7 @@ services:
     container_name: deluge
     depends_on:
       - vpn
-    image: lsioarmhf/deluge-aarch64:80
-#    image: lsioarmhf/deluge-aarch64:latest
+    image: linuxserver/deluge
     restart: unless-stopped
     network_mode: service:vpn # run on the vpn network
     environment:
@@ -95,7 +94,7 @@ services:
       - /media/usb1/ongoing/completed:/downloads/completed # download folder
       - /media/usb1/ongoing/incomplete:/downloads/incomplete # download folder
       - /media/usb1/ongoing/torrent-blackhole:/downloads/torrent-blackhole # put .torrent files
-      - ${HOME}/.config/deluge:/config # config files
+      - /media/usb1/.config/deluge:/config # config files
     labels:
       - "traefik.enable=true"
       - "traefik.backend=deluge"
@@ -114,7 +113,7 @@ services:
 
   nzbget:
     container_name: nzbget
-    image: lsioarmhf/nzbget:latest
+    image: linuxserver/nzbget
     restart: unless-stopped
     ports:
       - "6789:6789"
@@ -131,8 +130,8 @@ services:
       - /media/usb1/ongoing/nzb-tmp:/downloads/tmp # download temporary folder
       - /media/usb1/ongoing/nzb-blackhole:/downloads/nzb # place where to put .nzb files
       - /media/usb3/xxx:/downloads/completed/XXX # movies folder
-      - ${HOME}/.config/nzbget:/config # config files
-      - ${HOME}/.config/nzbget/scripts:/downloads/scripts # config files
+      - /media/usb1/.config/nzbget:/config # config files
+      - /media/usb1/.config/nzbget/scripts:/downloads/scripts # config files
     labels:
       - "traefik.enable=true"
       - "traefik.backend=nzbget"
@@ -151,7 +150,7 @@ services:
 
   jackett:
     container_name: jackett
-    image: lsioarmhf/jackett-aarch64:latest
+    image: linuxserver/jackett
     restart: unless-stopped
     ports:
         - "9117:9117"
@@ -164,7 +163,7 @@ services:
     volumes:
       - /etc/localtime:/etc/localtime:ro
       - /media/usb1/ongoing/torrent-blackhole:/downloads # place where to put .torrent files
-      - ${HOME}/.config/jackett:/config # config files
+      - /media/usb1/.config/jackett:/config # config files
     labels:
       - "traefik.enable=true"
       - "traefik.backend=jackett"
@@ -181,41 +180,9 @@ services:
       - "traefik.frontend.headers.STSPreload=true"
       - "traefik.frontend.headers.frameDeny=true"
 
-  hydra:
-    container_name: hydra
-    image: lsioarmhf/hydra2-aarch64:latest
-    restart: unless-stopped
-    ports:
-        - "5076:5076"
-    networks:
-      - traefik_proxy
-    environment:
-      - PUID=${PUID} # default user id, for downloaded files access rights
-      - PGID=${PGID} # default group id, for downloaded files access rights
-      - TZ=${TZ} # timezone
-    volumes:
-      - /etc/localtime:/etc/localtime:ro
-      - /media/usb1/ongoing/nzb-blackhole:/downloads # place where to put .torrent files
-      - ${HOME}/.config/hydra:/config # config files
-    labels:
-      - "traefik.enable=true"
-      - "traefik.backend=hydra"
-      - "traefik.frontend.rule=Host:hydra.${DOMAINNAME}"
-      - "traefik.port=5076"
-      - "traefik.docker.network=traefik_proxy"
-      - "traefik.frontend.headers.SSLRedirect=true"
-      - "traefik.frontend.headers.STSSeconds=315360000"
-      - "traefik.frontend.headers.browserXSSFilter=true"
-      - "traefik.frontend.headers.contentTypeNosniff=true"
-      - "traefik.frontend.headers.forceSTSHeader=true"
-      - "traefik.frontend.headers.SSLHost=${DOMAINNAME}"
-      - "traefik.frontend.headers.STSIncludeSubdomains=true"
-      - "traefik.frontend.headers.STSPreload=true"
-      - "traefik.frontend.headers.frameDeny=true"
-
   sonarr:
     container_name: sonarr
-    image: lsioarmhf/sonarr-aarch64:latest
+    image: linuxserver/sonarr
     restart: unless-stopped
     ports:
         - "8989:8989"
@@ -228,7 +195,7 @@ services:
       - TZ=${TZ} # timezone
     volumes:
       - /etc/localtime:/etc/localtime:ro
-      - ${HOME}/.config/sonarr:/config # config files
+      - /media/usb1/.config/sonarr:/config # config files
       - /media/usb1/series:/tv # tv shows folder
       - /media/usb1/ongoing/completed:/downloads/completed # download folder
     labels:
@@ -249,7 +216,7 @@ services:
 
   radarr:
     container_name: radarr
-    image: lsioarmhf/radarr-aarch64:latest
+    image: linuxserver/radarr
     restart: unless-stopped
     ports:
       - "7878:7878"
@@ -262,7 +229,7 @@ services:
       - TZ=${TZ} # timezone
     volumes:
       - /etc/localtime:/etc/localtime:ro
-      - ${HOME}/.config/radarr:/config # config files
+      - /media/usb1/.config/radarr:/config # config files
       - /media/usb1/movies:/movies # movies folder
       - /media/usb1/ongoing/completed:/downloads/completed # download folder
     labels:
@@ -293,7 +260,6 @@ services:
       - nzbget
       - sonarr
       - radarr
-      - hydra 
       - jackett
       - portainer
     ports:
@@ -309,7 +275,7 @@ services:
       - CLOUDFLARE_EMAIL=jasonbhart@gmail.com
       - CLOUDFLARE_API_KEY=4f326d3ccb01ede7180bf0ef1287aee7b220a
     volumes:
-      - ${HOME}/.config/traefik:/etc/traefik # config files
+      - /media/usb1/.config/traefik:/etc/traefik # config files
       - /var/run/docker.sock:/var/run/docker.sock
     labels:
       - "traefik.enable=true"
