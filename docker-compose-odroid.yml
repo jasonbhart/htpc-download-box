@@ -25,7 +25,7 @@ services:
     ports:
       - 8112:8112 # port for Deluge web UI to be reachable from local network
 #      - 9091:9091 # port for Transmission web UI to be reachable from local network
-    command: '-d -r 10.1.10.0/24' # route local network traffic
+    command: '-d -r 192.168.50.0/24' # route local network traffic
 
   samba:
     container_name: samba
@@ -39,11 +39,12 @@ services:
     stdin_open: true
     tty: true
     network_mode: host
-    command: ["-w WORKGROUP", "-uadmin;password;1000;1000", "-sMovies;/movies;yes;yes;yes;all;admin;admin;Movies", "-sTV Series;/series;yes;yes;yes;all;admin;admin;Movies", "-sXXX;/xxx;yes;yes;yes;all;admin;admin;XXX", "-r", "-n", "-g socket options = TCP_NODELAY IPTOS_LOWDELAY SO_RCVBUF=65536 SO_SNDBUF=65536"]
+    command: ["-w WORKGROUP", "-uadmin;password;1000;1000", "-sMovies;/movies;yes;yes;yes;all;admin;admin;Movies", "-sTV Series;/series;yes;yes;yes;all;admin;admin;Movies", "-sXXX;/xxx;yes;yes;yes;all;admin;admin;XXX", "-sXXX2;/xxx2;yes;yes;yes;all;admin;admin;XXX", "-r", "-n", "-g socket options = TCP_NODELAY IPTOS_LOWDELAY SO_RCVBUF=65536 SO_SNDBUF=65536"]
     volumes:
       - /media/usb1/series:/series:rw # download folder
       - /media/usb1/movies:/movies:rw # download folder
       - /media/usb3/xxx:/xxx:rw # download folder
+      - /media/usb2:/xxx2:rw # download folder
 
   heimdall:
     container_name: heimdall
@@ -54,7 +55,7 @@ services:
       - /tmp
     restart: unless-stopped
     ports:
-      - "80:80"
+      - "8081:80"
     networks:
       - traefik_proxy
     environment:
@@ -62,12 +63,12 @@ services:
       - PGID=${PGID} # default group id, for downloaded files access rights
       - TZ=${TZ} # timezone
     volumes:
-      - /media/usb1/.config/heimdal:/config # config files
+      - /media/usb1/.config/heimdal:/config:rw # config files
     labels:
       - "traefik.enable=true"
       - "traefik.backend=heimdall"
       - "traefik.frontend.rule=Host:heimdall.${DOMAINNAME}"
-      - "traefik.port=80"
+      - "traefik.port=8081"
       - "traefik.docker.network=traefik_proxy"
       - "traefik.frontend.headers.SSLRedirect=true"
       - "traefik.frontend.headers.STSSeconds=315360000"
@@ -261,7 +262,7 @@ services:
       - sonarr
       - radarr
       - jackett
-      - portainer
+#      - portainer
     ports:
       - "6660:6660"
       - "6661:6661"
@@ -293,38 +294,38 @@ services:
       - "traefik.frontend.headers.STSPreload=true"
       - "traefik.frontend.headers.frameDeny=true"
 
-  portainer:
-    container_name: portainer
-    image: portainer/portainer
-    restart: unless-stopped
-    command: -H unix:///var/run/docker.sock
-    ports:
-      - "9000:9000"
-    networks:
-      - traefik_proxy
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-      - portainer_data:/data
-    environment:
-      - TZ=${TZ}
-    labels:
-      - "traefik.enable=true"
-      - "traefik.backend=portainer"
-      - "traefik.frontend.rule=Host:portainer.${DOMAINNAME}"
-      - "traefik.port=9000"
-      - "traefik.docker.network=traefik_proxy"
-      - "traefik.frontend.headers.SSLRedirect=true"
-      - "traefik.frontend.headers.STSSeconds=315360000"
-      - "traefik.frontend.headers.browserXSSFilter=true"
-      - "traefik.frontend.headers.contentTypeNosniff=true"
-      - "traefik.frontend.headers.forceSTSHeader=true"
-      - "traefik.frontend.headers.SSLHost=${DOMAINNAME}"
-      - "traefik.frontend.headers.STSIncludeSubdomains=true"
-      - "traefik.frontend.headers.STSPreload=true"
-      - "traefik.frontend.headers.frameDeny=true"
+#  portainer:
+#    container_name: portainer
+#    image: portainer/portainer
+#    restart: unless-stopped
+#    command: -H unix:///var/run/docker.sock
+#    ports:
+#      - "9000:9000"
+#    networks:
+#      - traefik_proxy
+#    volumes:
+#      - /var/run/docker.sock:/var/run/docker.sock
+#      - portainer_data:/data
+#    environment:
+#      - TZ=${TZ}
+#    labels:
+#      - "traefik.enable=true"
+#      - "traefik.backend=portainer"
+#      - "traefik.frontend.rule=Host:portainer.${DOMAINNAME}"
+#      - "traefik.port=9000"
+#      - "traefik.docker.network=traefik_proxy"
+#      - "traefik.frontend.headers.SSLRedirect=true"
+#      - "traefik.frontend.headers.STSSeconds=315360000"
+#      - "traefik.frontend.headers.browserXSSFilter=true"
+#      - "traefik.frontend.headers.contentTypeNosniff=true"
+#      - "traefik.frontend.headers.forceSTSHeader=true"
+#      - "traefik.frontend.headers.SSLHost=${DOMAINNAME}"
+#      - "traefik.frontend.headers.STSIncludeSubdomains=true"
+#      - "traefik.frontend.headers.STSPreload=true"
+#      - "traefik.frontend.headers.frameDeny=true"
 
-volumes:
-  portainer_data:
+#volumes:
+#  portainer_data:
 
 networks:
   traefik_proxy:
